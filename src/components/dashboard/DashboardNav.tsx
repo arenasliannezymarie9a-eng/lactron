@@ -3,6 +3,7 @@ import { Zap, Sun, Moon, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { authAPI } from "@/lib/api";
 
 interface DashboardNavProps {
   isDark: boolean;
@@ -12,7 +13,8 @@ interface DashboardNavProps {
 const DashboardNav = ({ isDark, onToggleTheme }: DashboardNavProps) => {
   const navigate = useNavigate();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await authAPI.logout();
     toast.success("Logged out successfully");
     navigate("/");
   };
@@ -41,7 +43,8 @@ const DashboardNav = ({ isDark, onToggleTheme }: DashboardNavProps) => {
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      {/* Hidden during print */}
+      <div className="flex items-center gap-2 print:hidden">
         <Button
           variant="outline"
           size="icon"
@@ -60,7 +63,7 @@ const DashboardNav = ({ isDark, onToggleTheme }: DashboardNavProps) => {
         <Button
           variant="outline"
           onClick={handleLogout}
-          className="rounded-xl h-10 text-status-danger border-status-danger/20 hover:bg-status-danger/10"
+          className="rounded-xl h-10 text-destructive border-destructive/20 hover:bg-destructive/10"
         >
           <LogOut className="w-4 h-4 mr-2" />
           Logout
