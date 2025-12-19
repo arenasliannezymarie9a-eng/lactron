@@ -2,20 +2,37 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import numpy as np
 import os
+import pickle
 
 app = Flask(__name__)
 CORS(app)
 
-# Try to load TensorFlow model
+# Model loading with multiple fallback options for Python 3.14 compatibility
 model = None
+model_type = None
+
+# Try sklearn first (better Python 3.14 support)
 try:
-    import tensorflow as tf
-    model_path = os.path.join(os.path.dirname(__file__), 'shelf_life_model.h5')
+    model_path = os.path.join(os.path.dirname(__file__), 'shelf_life_model.pkl')
     if os.path.exists(model_path):
-        model = tf.keras.models.load_model(model_path)
-        print("TensorFlow model loaded successfully")
+        with open(model_path, 'rb') as f:
+            model = pickle.load(f)
+        model_type = 'sklearn'
+        print("Scikit-learn model loaded successfully")
 except Exception as e:
-    print(f"TensorFlow not available or model not found: {e}")
+    print(f"Scikit-learn model not found: {e}")
+
+# Fallback to TensorFlow if sklearn model not available
+if model is None:
+    try:
+        import tensorflow as tf
+        model_path = os.path.join(os.path.dirname(__file__), 'shelf_life_model.h5')
+        if os.path.exists(model_path):
+            model = tf.keras.models.load_model(model_path)
+            model_type = 'tensorflow'
+            print("TensorFlow model loaded successfully")
+    except Exception as e:
+        print(f"TensorFlow not available or model not found: {e}")
 
 # Normalization parameters (from training)
 NORM_PARAMS = {
@@ -30,14 +47,19 @@ def normalize(value, param):
     return (value - NORM_PARAMS[param]['min']) / (NORM_PARAMS[param]['max'] - NORM_PARAMS[param]['min'])
 
 def predict_shelf_life(ethanol, ammonia, h2s):
-    """Predict shelf life using TensorFlow model or fallback formula"""
+    """Predict shelf life using ML model or fallback formula"""
     
     if model is not None:
-        # Use TensorFlow model
         input_data = np.array([[normalize(ethanol, 'ethanol'), normalize(ammonia, 'ammonia'), normalize(h2s, 'h2s')]])
-        prediction = model.predict(input_data, verbose=0)[0][0]
+        
+        if model_type == 'sklearn':
+            prediction = model.predict(input_data)[0]
+            confidence = 0.90
+        else:  # tensorflow
+            prediction = model.predict(input_data, verbose=0)[0][0]
+            confidence = 0.92
+            
         shelf_life = max(0, int(round(prediction)))
-        confidence = 0.92
     else:
         # Fallback: Formula-based prediction
         eth_score = max(0, 1 - (ethanol / SPOILAGE_THRESHOLDS['ethanol']))
@@ -65,7 +87,12 @@ def predict():
 
 @app.route('/health', methods=['GET'])
 def health():
-    return jsonify({'status': 'healthy', 'model_loaded': model is not None})
+    return jsonify({
+        'status': 'healthy', 
+        'model_loaded': model is not None,
+        'model_type': model_type,
+        'python_version': f'{__import__("sys").version}'
+    })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
