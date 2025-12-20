@@ -1,6 +1,8 @@
 import { motion } from "framer-motion";
 import { Beaker, Wind, Flame } from "lucide-react";
 import SensorCard from "./SensorCard";
+import SensorHistoryChart from "./SensorHistoryChart";
+import { SensorReading } from "@/lib/api";
 
 interface SensorData {
   ethanol: number;
@@ -10,9 +12,10 @@ interface SensorData {
 
 interface MolecularFingerprintProps {
   data: SensorData;
+  history: SensorReading[];
 }
 
-const MolecularFingerprint = ({ data }: MolecularFingerprintProps) => {
+const MolecularFingerprint = ({ data, history }: MolecularFingerprintProps) => {
   return (
     <motion.div
       initial={{ opacity: 0, x: -20 }}
@@ -34,34 +37,63 @@ const MolecularFingerprint = ({ data }: MolecularFingerprintProps) => {
         </div>
       </div>
 
-      <div className="space-y-5">
-        <SensorCard
-          label="Ethanol"
-          value={data.ethanol / 5}
-          unit="ppm"
-          maxValue={20}
-          icon={Beaker}
-          color="primary"
-          delay={0}
-        />
-        <SensorCard
-          label="Ammonia"
-          value={data.ammonia / 10}
-          unit="ppm"
-          maxValue={10}
-          icon={Wind}
-          color="accent"
-          delay={0.1}
-        />
-        <SensorCard
-          label="H₂S (Hydrogen Sulfide)"
-          value={data.h2s / 100}
-          unit="ppm"
-          maxValue={1}
-          icon={Flame}
-          color="success"
-          delay={0.2}
-        />
+      <div className="space-y-6">
+        {/* Ethanol */}
+        <div>
+          <SensorCard
+            label="Ethanol"
+            value={data.ethanol / 5}
+            unit="ppm"
+            maxValue={20}
+            icon={Beaker}
+            color="primary"
+            delay={0}
+          />
+          <SensorHistoryChart
+            data={history}
+            sensorType="ethanol"
+            color="hsl(var(--primary))"
+            label="Ethanol"
+          />
+        </div>
+
+        {/* Ammonia */}
+        <div>
+          <SensorCard
+            label="Ammonia"
+            value={data.ammonia / 10}
+            unit="ppm"
+            maxValue={10}
+            icon={Wind}
+            color="accent"
+            delay={0.1}
+          />
+          <SensorHistoryChart
+            data={history}
+            sensorType="ammonia"
+            color="hsl(var(--accent))"
+            label="Ammonia"
+          />
+        </div>
+
+        {/* H2S */}
+        <div>
+          <SensorCard
+            label="H₂S (Hydrogen Sulfide)"
+            value={data.h2s / 100}
+            unit="ppm"
+            maxValue={1}
+            icon={Flame}
+            color="success"
+            delay={0.2}
+          />
+          <SensorHistoryChart
+            data={history}
+            sensorType="h2s"
+            color="hsl(var(--status-good))"
+            label="H₂S"
+          />
+        </div>
       </div>
     </motion.div>
   );

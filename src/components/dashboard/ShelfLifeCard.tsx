@@ -1,14 +1,17 @@
 import { motion } from "framer-motion";
-import { Clock, Thermometer, Droplets, Activity } from "lucide-react";
+import { Clock, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Batch } from "@/lib/api";
+import { format } from "date-fns";
 
 interface ShelfLifeCardProps {
   days: number;
   status: "good" | "spoiled";
+  batch: Batch | null;
   onSimulate: () => void;
 }
 
-const ShelfLifeCard = ({ days, status, onSimulate }: ShelfLifeCardProps) => {
+const ShelfLifeCard = ({ days, status, batch, onSimulate }: ShelfLifeCardProps) => {
   const isGood = status === "good";
 
   const tips = isGood
@@ -29,6 +32,10 @@ const ShelfLifeCard = ({ days, status, onSimulate }: ShelfLifeCardProps) => {
         ],
       };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -36,6 +43,18 @@ const ShelfLifeCard = ({ days, status, onSimulate }: ShelfLifeCardProps) => {
       transition={{ duration: 0.5, delay: 0.2 }}
       className="glass-card rounded-3xl p-6 flex flex-col h-full"
     >
+      {/* Batch Info for PDF */}
+      {batch && (
+        <div className="hidden print:block mb-4 p-4 border border-border rounded-xl">
+          <h4 className="font-bold text-sm mb-2">Batch Information</h4>
+          <div className="text-xs space-y-1">
+            <p><span className="text-muted-foreground">Batch ID:</span> {batch.batch_id}</p>
+            <p><span className="text-muted-foreground">Collector:</span> {batch.collector_name}</p>
+            <p><span className="text-muted-foreground">Time of Collection:</span> {format(new Date(batch.collection_datetime), "MMM dd, yyyy 'at' HH:mm")}</p>
+          </div>
+        </div>
+      )}
+
       <div className="text-center mb-4">
         <div className="inline-flex items-center gap-2 text-muted-foreground mb-2">
           <Clock className="w-4 h-4" />
@@ -92,7 +111,7 @@ const ShelfLifeCard = ({ days, status, onSimulate }: ShelfLifeCardProps) => {
       </motion.div>
 
       {/* Action Buttons */}
-      <div className="flex gap-3 mt-4">
+      <div className="flex gap-3 mt-4 print:hidden">
         <Button
           variant="outline"
           onClick={onSimulate}
@@ -103,7 +122,7 @@ const ShelfLifeCard = ({ days, status, onSimulate }: ShelfLifeCardProps) => {
         </Button>
         <Button
           className="flex-1 rounded-xl h-11 hover:scale-[1.02] transition-transform"
-          onClick={() => window.print()}
+          onClick={handlePrint}
         >
           PDF Report
         </Button>

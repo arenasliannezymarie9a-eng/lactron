@@ -1,23 +1,29 @@
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
-import { Hash, MapPin, Clock } from "lucide-react";
+import { Hash, MapPin, Clock, User } from "lucide-react";
+import { format } from "date-fns";
+import { Batch } from "@/lib/api";
 
-const MetaStrip = () => {
-  const [time, setTime] = useState(new Date());
+interface MetaStripProps {
+  batch: Batch | null;
+}
 
-  useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+const MetaStrip = ({ batch }: MetaStripProps) => {
+  const formatCollectionTime = (datetime: string) => {
+    try {
+      return format(new Date(datetime), "MMM dd, yyyy 'at' HH:mm");
+    } catch {
+      return datetime;
+    }
+  };
 
-  const metaItems = [
-    { icon: Hash, label: "Batch Identifier", value: "#LAC-2025-X99" },
-    { icon: MapPin, label: "Collection Site", value: "Regional Silo 04" },
-    {
-      icon: Clock,
-      label: "Session Time",
-      value: time.toLocaleTimeString(),
-    },
+  const metaItems = batch ? [
+    { icon: Hash, label: "Batch Identifier", value: batch.batch_id },
+    { icon: User, label: "Collector", value: batch.collector_name },
+    { icon: Clock, label: "Time of Collection", value: formatCollectionTime(batch.collection_datetime) },
+  ] : [
+    { icon: Hash, label: "Batch Identifier", value: "No batch selected" },
+    { icon: User, label: "Collector", value: "-" },
+    { icon: Clock, label: "Time of Collection", value: "-" },
   ];
 
   return (
