@@ -1,5 +1,4 @@
 // LACTRON API Configuration and Services
-// Configure these URLs based on your local server setup
 
 const API_CONFIG = {
   PHP_BASE_URL: 'http://localhost:8080/api',
@@ -13,10 +12,23 @@ export interface User {
   name: string;
 }
 
+export interface SecurityQuestion {
+  id: number;
+  question: string;
+}
+
 export interface SensorData {
   ethanol: number;
   ammonia: number;
   h2s: number;
+}
+
+export interface SensorReading extends SensorData {
+  id: number;
+  batch_id: string;
+  status: 'good' | 'spoiled';
+  predicted_shelf_life: number;
+  created_at: string;
 }
 
 export interface PredictionResult {
@@ -29,17 +41,19 @@ export interface PredictionResult {
 export interface Batch {
   id: number;
   batch_id: string;
-  collection_site: string;
-  created_at: string;
+  collector_name: string;
+  collection_datetime: string;
   status: 'good' | 'spoiled';
-  latest_reading?: SensorData;
-  predicted_shelf_life?: number;
+  created_at: string;
+  reading_count?: number;
+  latest_shelf_life?: number;
 }
 
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
+  message?: string;
 }
 
 // Auth API
@@ -58,13 +72,26 @@ export const authAPI = {
     }
   },
 
-  async signup(email: string, password: string, name: string): Promise<ApiResponse<User>> {
+  async signup(
+    email: string, 
+    password: string, 
+    name: string,
+    securityQuestionId: number,
+    securityAnswer: string
+  ): Promise<ApiResponse<User>> {
     try {
       const response = await fetch(`${API_CONFIG.PHP_BASE_URL}/auth.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ action: 'signup', email, password, name }),
+        body: JSON.stringify({ 
+          action: 'signup', 
+          email, 
+          password, 
+          name,
+          security_question_id: securityQuestionId,
+          security_answer: securityAnswer
+        }),
       });
       return await response.json();
     } catch (error) {
@@ -99,6 +126,60 @@ export const authAPI = {
       return { success: false, error: 'Connection failed' };
     }
   },
+
+  async getSecurityQuestions(): Promise<ApiResponse<SecurityQuestion[]>> {
+    try {
+      const response = await fetch(`${API_CONFIG.PHP_BASE_URL}/auth.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get_security_questions' }),
+      });
+      return await response.json();
+    } catch (error) {
+      return { success: false, error: 'Connection failed' };
+    }
+  },
+
+  async getUserSecurityQuestion(email: string): Promise<ApiResponse<{ user_id: number; question: string }>> {
+    try {
+      const response = await fetch(`${API_CONFIG.PHP_BASE_URL}/auth.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get_user_security_question', email }),
+      });
+      return await response.json();
+    } catch (error) {
+      return { success: false, error: 'Connection failed' };
+    }
+  },
+
+  async verifySecurityAnswer(email: string, answer: string): Promise<ApiResponse<{ reset_token: string }>> {
+    try {
+      const response = await fetch(`${API_CONFIG.PHP_BASE_URL}/auth.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'verify_security_answer', email, answer }),
+      });
+      return await response.json();
+    } catch (error) {
+      return { success: false, error: 'Connection failed' };
+    }
+  },
+
+  async resetPassword(resetToken: string, newPassword: string): Promise<ApiResponse<null>> {
+    try {
+      const response = await fetch(`${API_CONFIG.PHP_BASE_URL}/auth.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'reset_password', reset_token: resetToken, new_password: newPassword }),
+      });
+      return await response.json();
+    } catch (error) {
+      return { success: false, error: 'Connection failed' };
+    }
+  },
 };
 
 // Sensor Data API
@@ -115,7 +196,7 @@ export const sensorAPI = {
     }
   },
 
-  async getHistory(batchId: string, limit = 100): Promise<ApiResponse<(SensorData & { timestamp: string })[]>> {
+  async getHistory(batchId: string, limit = 50): Promise<ApiResponse<SensorReading[]>> {
     try {
       const response = await fetch(
         `${API_CONFIG.PHP_BASE_URL}/sensor_data.php?action=history&batch_id=${batchId}&limit=${limit}`,
@@ -144,13 +225,18 @@ export const sensorAPI = {
 
 // Batch API
 export const batchAPI = {
-  async create(collectionSite: string): Promise<ApiResponse<Batch>> {
+  async create(batchId: string, collectorName: string, collectionDatetime: string): Promise<ApiResponse<Batch>> {
     try {
       const response = await fetch(`${API_CONFIG.PHP_BASE_URL}/batches.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ action: 'create', collection_site: collectionSite }),
+        body: JSON.stringify({ 
+          action: 'create', 
+          batch_id: batchId,
+          collector_name: collectorName,
+          collection_datetime: collectionDatetime
+        }),
       });
       return await response.json();
     } catch (error) {
@@ -173,6 +259,20 @@ export const batchAPI = {
     try {
       const response = await fetch(`${API_CONFIG.PHP_BASE_URL}/batches.php?action=get&batch_id=${batchId}`, {
         credentials: 'include',
+      });
+      return await response.json();
+    } catch (error) {
+      return { success: false, error: 'Connection failed' };
+    }
+  },
+
+  async delete(batchId: string): Promise<ApiResponse<null>> {
+    try {
+      const response = await fetch(`${API_CONFIG.PHP_BASE_URL}/batches.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'delete', batch_id: batchId }),
       });
       return await response.json();
     } catch (error) {
@@ -207,5 +307,4 @@ export const mlAPI = {
   },
 };
 
-// Export config for external use
 export { API_CONFIG };
