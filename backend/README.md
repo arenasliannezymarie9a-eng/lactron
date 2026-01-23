@@ -6,6 +6,7 @@
 ```bash
 mysql -u root -p < sql/database.sql
 ```
+This creates the `lactron` database with all required tables.
 
 ### 2. PHP Server
 ```bash
@@ -25,6 +26,5 @@ python app.py
 - Update WiFi credentials and server IP
 - Upload to ESP32
 
-### Default Login
-- Email: `admin@lactron.com`
-- Password: `admin123`
+### Sign Up & Login
+Create a new account via the Sign Up tab in the web app.

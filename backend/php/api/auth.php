@@ -34,16 +34,9 @@ switch ($action) {
         $email = trim($input['email'] ?? '');
         $password = $input['password'] ?? '';
         $name = trim($input['name'] ?? '');
-        $securityQuestionId = intval($input['security_question_id'] ?? 0);
-        $securityAnswer = $input['security_answer'] ?? ''; // Case-sensitive, stored as-is
         
         if (empty($email) || empty($password) || empty($name)) {
             echo json_encode(['success' => false, 'error' => 'All fields are required']);
-            break;
-        }
-        
-        if ($securityQuestionId <= 0 || empty($securityAnswer)) {
-            echo json_encode(['success' => false, 'error' => 'Security question and answer are required']);
             break;
         }
         
@@ -55,17 +48,9 @@ switch ($action) {
             break;
         }
         
-        // Verify security question exists
-        $stmt = $pdo->prepare('SELECT id FROM security_questions WHERE id = ?');
-        $stmt->execute([$securityQuestionId]);
-        if (!$stmt->fetch()) {
-            echo json_encode(['success' => false, 'error' => 'Invalid security question']);
-            break;
-        }
-        
         $hash = password_hash($password, PASSWORD_DEFAULT);
-        $stmt = $pdo->prepare('INSERT INTO users (email, password, name, security_question_id, security_answer) VALUES (?, ?, ?, ?, ?)');
-        $stmt->execute([$email, $hash, $name, $securityQuestionId, $securityAnswer]);
+        $stmt = $pdo->prepare('INSERT INTO users (email, password, name) VALUES (?, ?, ?)');
+        $stmt->execute([$email, $hash, $name]);
         
         $userId = $pdo->lastInsertId();
         $_SESSION['user_id'] = $userId;

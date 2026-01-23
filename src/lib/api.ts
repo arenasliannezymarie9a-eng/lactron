@@ -68,16 +68,14 @@ export const authAPI = {
       });
       return await response.json();
     } catch (error) {
-      return { success: false, error: 'Connection failed. Is the PHP server running?' };
+      return { success: false, error: 'Backend not available. Please run the PHP server locally (php -S localhost:8080 -t backend/php/api)' };
     }
   },
 
   async signup(
     email: string, 
     password: string, 
-    name: string,
-    securityQuestionId: number,
-    securityAnswer: string
+    name: string
   ): Promise<ApiResponse<User>> {
     try {
       const response = await fetch(`${API_CONFIG.PHP_BASE_URL}/auth.php`, {
@@ -88,14 +86,12 @@ export const authAPI = {
           action: 'signup', 
           email, 
           password, 
-          name,
-          security_question_id: securityQuestionId,
-          security_answer: securityAnswer
+          name
         }),
       });
       return await response.json();
     } catch (error) {
-      return { success: false, error: 'Connection failed. Is the PHP server running?' };
+      return { success: false, error: 'Backend not available. Please run the PHP server locally (php -S localhost:8080 -t backend/php/api)' };
     }
   },
 
@@ -192,7 +188,7 @@ export const sensorAPI = {
       const response = await fetch(url, { credentials: 'include' });
       return await response.json();
     } catch (error) {
-      return { success: false, error: 'Connection failed. Is the PHP server running?' };
+      return { success: false, error: 'Backend not available. Please run the PHP server locally (php -S localhost:8080 -t backend/php/api)' };
     }
   },
 
