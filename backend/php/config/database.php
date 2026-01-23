@@ -1,7 +1,7 @@
 <?php
 // Database Configuration for LACTRON
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'lactron');
+define('DB_NAME', 'lactron_db');
 define('DB_USER', 'root');
 define('DB_PASS', '');
 
