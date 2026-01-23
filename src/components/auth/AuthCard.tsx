@@ -212,156 +212,173 @@ const AuthCard = () => {
           </button>
         )}
 
-        {/* Login Form */}
-        {mode === "login" && (
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div>
-              <Label htmlFor="email" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Email
-              </Label>
-              <div className="relative mt-1.5">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@facility.com"
-                  required
-                  className="pl-10 h-12 rounded-xl bg-secondary/50 border-transparent focus:border-primary focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="password" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Password
-              </Label>
-              <div className="relative mt-1.5">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className="pl-10 h-12 rounded-xl bg-secondary/50 border-transparent focus:border-primary focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
-            </div>
-
-            <Button
-              type="submit"
-              disabled={isLoading}
-              className="w-full h-12 rounded-xl text-base font-semibold mt-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg"
+        {/* Login/Signup Forms with smooth transitions */}
+        <AnimatePresence mode="wait">
+          {mode === "login" && (
+            <motion.form
+              key="login"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              onSubmit={handleLogin}
+              className="space-y-5"
             >
-              {isLoading ? (
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                >
-                  <Zap className="w-5 h-5" />
-                </motion.div>
-              ) : (
-                "Access Dashboard"
-              )}
-            </Button>
-          </form>
-        )}
-
-        {/* Signup Form */}
-        {mode === "signup" && (
-          <form onSubmit={handleSignup} className="space-y-5">
-            <div>
-              <Label htmlFor="name" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Full Name
-              </Label>
-              <div className="relative mt-1.5">
-                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Dr. Jane Smith"
-                  required
-                  className="pl-10 h-12 rounded-xl bg-secondary/50 border-transparent focus:border-primary focus:ring-2 focus:ring-primary/20"
-                />
+              <div>
+                <Label htmlFor="email" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Email
+                </Label>
+                <div className="relative mt-1.5">
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="name@facility.com"
+                    required
+                    className="pl-10 h-12 rounded-xl bg-secondary/50 border-transparent focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
               </div>
-            </div>
 
-            <div>
-              <Label htmlFor="signup-email" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Email
-              </Label>
-              <div className="relative mt-1.5">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="signup-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@facility.com"
-                  required
-                  className="pl-10 h-12 rounded-xl bg-secondary/50 border-transparent focus:border-primary focus:ring-2 focus:ring-primary/20"
-                />
+              <div>
+                <Label htmlFor="password" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Password
+                </Label>
+                <div className="relative mt-1.5">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    className="pl-10 h-12 rounded-xl bg-secondary/50 border-transparent focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
               </div>
-            </div>
 
-            <div>
-              <Label htmlFor="signup-password" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Password
-              </Label>
-              <div className="relative mt-1.5">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="signup-password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className="pl-10 h-12 rounded-xl bg-secondary/50 border-transparent focus:border-primary focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
-            </div>
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="w-full h-12 rounded-xl text-base font-semibold mt-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg"
+              >
+                {isLoading ? (
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  >
+                    <Zap className="w-5 h-5" />
+                  </motion.div>
+                ) : (
+                  "Access Dashboard"
+                )}
+              </Button>
+            </motion.form>
+          )}
 
-            <div>
-              <Label htmlFor="confirm-password" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Confirm Password
-              </Label>
-              <div className="relative mt-1.5">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className="pl-10 h-12 rounded-xl bg-secondary/50 border-transparent focus:border-primary focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
-            </div>
-
-            <Button
-              type="submit"
-              disabled={isLoading}
-              className="w-full h-12 rounded-xl text-base font-semibold mt-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg"
+          {mode === "signup" && (
+            <motion.form
+              key="signup"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              onSubmit={handleSignup}
+              className="space-y-5"
             >
-              {isLoading ? (
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                >
-                  <Zap className="w-5 h-5" />
-                </motion.div>
-              ) : (
-                "Create Account"
-              )}
-            </Button>
-          </form>
-        )}
+              <div>
+                <Label htmlFor="name" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Full Name
+                </Label>
+                <div className="relative mt-1.5">
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Dr. Jane Smith"
+                    required
+                    className="pl-10 h-12 rounded-xl bg-secondary/50 border-transparent focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="signup-email" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Email
+                </Label>
+                <div className="relative mt-1.5">
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="signup-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="name@facility.com"
+                    required
+                    className="pl-10 h-12 rounded-xl bg-secondary/50 border-transparent focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="signup-password" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Password
+                </Label>
+                <div className="relative mt-1.5">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="signup-password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    className="pl-10 h-12 rounded-xl bg-secondary/50 border-transparent focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="confirm-password" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Confirm Password
+                </Label>
+                <div className="relative mt-1.5">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    className="pl-10 h-12 rounded-xl bg-secondary/50 border-transparent focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="w-full h-12 rounded-xl text-base font-semibold mt-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg"
+              >
+                {isLoading ? (
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  >
+                    <Zap className="w-5 h-5" />
+                  </motion.div>
+                ) : (
+                  "Create Account"
+                )}
+              </Button>
+            </motion.form>
+          )}
+        </AnimatePresence>
 
         {/* Forgot Password - Email Entry */}
         {mode === "forgot" && (
