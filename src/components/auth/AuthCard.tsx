@@ -3,17 +3,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Lock, Mail, User, Shield, Zap, HelpCircle, KeyRound, ArrowLeft } from "lucide-react";
+import { Lock, Mail, User, Zap, KeyRound, ArrowLeft, HelpCircle, Shield } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { authAPI, SecurityQuestion } from "@/lib/api";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 type AuthMode = "login" | "signup" | "forgot" | "security_question" | "reset_password";
 
@@ -28,9 +21,8 @@ const AuthCard = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
   
-  // Security questions
+  // Security questions (only for forgot password flow)
   const [securityQuestions, setSecurityQuestions] = useState<SecurityQuestion[]>([]);
-  const [selectedQuestionId, setSelectedQuestionId] = useState<string>("");
   const [securityAnswer, setSecurityAnswer] = useState("");
   
   // Forgot password flow
@@ -39,17 +31,12 @@ const AuthCard = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
 
-  // Load security questions on mount
+  // Load security questions (for forgot password only)
   useEffect(() => {
     const loadSecurityQuestions = async () => {
       const response = await authAPI.getSecurityQuestions();
       if (response.success && response.data) {
         setSecurityQuestions(response.data);
-        // Randomly select one question
-        if (response.data.length > 0) {
-          const randomIndex = Math.floor(Math.random() * response.data.length);
-          setSelectedQuestionId(response.data[randomIndex].id.toString());
-        }
       }
     };
     loadSecurityQuestions();
@@ -78,20 +65,9 @@ const AuthCard = () => {
       return;
     }
     
-    if (!selectedQuestionId || !securityAnswer) {
-      toast.error("Security question and answer are required");
-      return;
-    }
-    
     setIsLoading(true);
     
-    const response = await authAPI.signup(
-      email, 
-      password, 
-      name, 
-      parseInt(selectedQuestionId), 
-      securityAnswer
-    );
+    const response = await authAPI.signup(email, password, name);
     
     if (response.success) {
       toast.success("Account created successfully!");
@@ -169,15 +145,6 @@ const AuthCard = () => {
   const switchMode = (newMode: AuthMode) => {
     resetForm();
     setMode(newMode);
-    // Re-randomize security question for signup
-    if (newMode === "signup" && securityQuestions.length > 0) {
-      const randomIndex = Math.floor(Math.random() * securityQuestions.length);
-      setSelectedQuestionId(securityQuestions[randomIndex].id.toString());
-    }
-  };
-
-  const getSelectedQuestion = () => {
-    return securityQuestions.find(q => q.id.toString() === selectedQuestionId)?.question || "";
   };
 
   return (
@@ -377,44 +344,6 @@ const AuthCard = () => {
               </div>
             </div>
 
-            {/* Security Question */}
-            <div className="space-y-3 p-4 bg-secondary/30 rounded-xl">
-              <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-                <HelpCircle className="w-4 h-4" />
-                <span>Security Question</span>
-              </div>
-              
-              <Select value={selectedQuestionId} onValueChange={setSelectedQuestionId}>
-                <SelectTrigger className="h-12 rounded-xl bg-secondary/50 border-transparent">
-                  <SelectValue placeholder="Select a security question" />
-                </SelectTrigger>
-                <SelectContent>
-                  {securityQuestions.map((q) => (
-                    <SelectItem key={q.id} value={q.id.toString()}>
-                      {q.question}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
-              <div>
-                <Label htmlFor="security-answer" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Your Answer (Case-Sensitive)
-                </Label>
-                <Input
-                  id="security-answer"
-                  value={securityAnswer}
-                  onChange={(e) => setSecurityAnswer(e.target.value)}
-                  placeholder="Enter your answer"
-                  required
-                  className="mt-1.5 h-12 rounded-xl bg-secondary/50 border-transparent focus:border-primary focus:ring-2 focus:ring-primary/20"
-                />
-                <p className="text-xs text-amber-500 mt-1">
-                  ⚠️ This answer is case-sensitive and will be used for password recovery.
-                </p>
-              </div>
-            </div>
-
             <Button
               type="submit"
               disabled={isLoading}
@@ -506,7 +435,7 @@ const AuthCard = () => {
                 required
                 className="mt-1.5 h-12 rounded-xl bg-secondary/50 border-transparent focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
-              <p className="text-xs text-amber-500 mt-1">
+              <p className="text-xs text-destructive mt-1">
                 ⚠️ Remember, your answer is case-sensitive.
               </p>
             </div>

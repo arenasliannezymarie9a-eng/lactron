@@ -1,10 +1,10 @@
 -- LACTRON Database Schema
--- Complete schema with security questions, batches linked to users, and sensor readings
+-- Complete schema with batches linked to users, and sensor readings
 
-CREATE DATABASE IF NOT EXISTS lactron_db;
-USE lactron_db;
+CREATE DATABASE IF NOT EXISTS lactron;
+USE lactron;
 
--- Security questions predefined list
+-- Security questions predefined list (for password recovery only)
 CREATE TABLE security_questions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     question TEXT NOT NULL
@@ -23,14 +23,14 @@ INSERT INTO security_questions (question) VALUES
 ('What was your childhood nickname?'),
 ('What is the name of your favorite childhood friend?');
 
--- Users table with security question
+-- Users table (security question is optional, set during password recovery)
 CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
     name VARCHAR(100) NOT NULL,
-    security_question_id INT NOT NULL,
-    security_answer VARCHAR(255) NOT NULL,
+    security_question_id INT DEFAULT NULL,
+    security_answer VARCHAR(255) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (security_question_id) REFERENCES security_questions(id)
 );
