@@ -75,9 +75,7 @@ export const authAPI = {
   async signup(
     email: string, 
     password: string, 
-    name: string,
-    securityQuestionId: number,
-    securityAnswer: string
+    name: string
   ): Promise<ApiResponse<User>> {
     try {
       const response = await fetch(`${API_CONFIG.PHP_BASE_URL}/auth.php`, {
@@ -88,9 +86,7 @@ export const authAPI = {
           action: 'signup', 
           email, 
           password, 
-          name,
-          security_question_id: securityQuestionId,
-          security_answer: securityAnswer
+          name
         }),
       });
       return await response.json();
