@@ -13,6 +13,12 @@ $allowedOrigins = [
     'http://127.0.0.1:8080',
 ];
 
+// Allow any localhost/127.0.0.1 port for development (Vite may auto-pick 8081/8082/etc.)
+$isLocalDevOrigin = false;
+if (!empty($origin)) {
+    $isLocalDevOrigin = preg_match('#^https?://(localhost|127\\.0\\.0\\.1):\\d+$#i', $origin) === 1;
+}
+
 // Allow Lovable preview/published domains.
 // Example: https://id-preview--<uuid>.lovable.app
 // Example: https://<project>.lovable.app
@@ -23,7 +29,7 @@ if (!empty($origin)) {
         || preg_match('#^https://[a-z0-9-]+\.lovableproject\.com$#i', $origin) === 1;
 }
 
-if (in_array($origin, $allowedOrigins, true) || $isLovableOrigin) {
+if (in_array($origin, $allowedOrigins, true) || $isLovableOrigin || $isLocalDevOrigin) {
     header('Access-Control-Allow-Origin: ' . $origin);
     header('Vary: Origin');
 }
