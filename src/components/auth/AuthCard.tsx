@@ -205,32 +205,31 @@ const AuthCard = () => {
       className="w-full max-w-md"
     >
       {/* Logo Header */}
-      <div className="text-center mb-8">
+      <div className="text-center mb-10">
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.2, ease: "backOut" }}
-          className="inline-flex items-center gap-3 mb-2"
+          className="flex flex-col items-center gap-4 mb-3"
         >
           <motion.img
             src={lactronLogo}
             alt="LACTRON"
-            className="w-12 h-12 object-contain"
-            whileHover={{ scale: 1.05, rotate: 5 }}
+            className="w-20 h-20 md:w-24 md:h-24 object-contain drop-shadow-lg"
+            whileHover={{ scale: 1.05, rotate: 3 }}
             transition={{ type: "spring", stiffness: 400 }}
           />
-          <h1 className="text-3xl font-extrabold tracking-tight">
-            <span className="text-primary">LACTRON</span>
-            <span className="text-muted-foreground font-light">.io</span>
+          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-primary">
+            LACTRON
           </h1>
         </motion.div>
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3 }}
-          className="text-sm text-muted-foreground uppercase tracking-widest"
+          className="text-base md:text-lg font-bold text-foreground tracking-wide"
         >
-          Quality Monitoring Portal
+          Intelligence in Every Drop.
         </motion.p>
       </div>
 
