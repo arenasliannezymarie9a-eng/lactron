@@ -96,6 +96,24 @@ CREATE TABLE prediction_logs (
     INDEX idx_batch (batch_id)
 );
 
+-- Batch history table for saved/archived batches
+CREATE TABLE batch_history (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    batch_id VARCHAR(50) NOT NULL,
+    user_id INT NOT NULL,
+    collector_name VARCHAR(100) NOT NULL,
+    collection_datetime DATETIME NOT NULL,
+    ethanol DECIMAL(10,2) NOT NULL,
+    ammonia DECIMAL(10,2) NOT NULL,
+    h2s DECIMAL(10,2) NOT NULL,
+    grade ENUM('GOOD', 'SPOILED') DEFAULT 'GOOD',
+    shelf_life DECIMAL(10,2) DEFAULT 0,
+    saved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_user (user_id),
+    INDEX idx_batch (batch_id)
+);
+
 -- Insert default thresholds
 INSERT INTO system_settings (setting_key, setting_value) VALUES
 ('ethanol_threshold', '50'),

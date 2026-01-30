@@ -61,6 +61,20 @@ export interface Batch {
   latest_shelf_life?: number;
 }
 
+export interface BatchHistory {
+  id: number;
+  batch_id: string;
+  user_id: number;
+  collector_name: string;
+  collection_datetime: string;
+  ethanol: number;
+  ammonia: number;
+  h2s: number;
+  grade: 'GOOD' | 'SPOILED';
+  shelf_life: number;
+  saved_at: string;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -311,6 +325,78 @@ export const mlAPI = {
       return data.status === 'healthy';
     } catch {
       return false;
+    }
+  },
+};
+
+// Batch History API
+export const historyAPI = {
+  async save(
+    batchId: string,
+    collectorName: string,
+    collectionDatetime: string,
+    ethanol: number,
+    ammonia: number,
+    h2s: number,
+    grade: string,
+    shelfLife: number
+  ): Promise<ApiResponse<{ id: number; batch_id: string }>> {
+    try {
+      const response = await fetch(`${API_CONFIG.PHP_BASE_URL}/history.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          action: 'save',
+          batch_id: batchId,
+          collector_name: collectorName,
+          collection_datetime: collectionDatetime,
+          ethanol,
+          ammonia,
+          h2s,
+          grade,
+          shelf_life: shelfLife,
+        }),
+      });
+      return await response.json();
+    } catch (error) {
+      return { success: false, error: 'Connection failed' };
+    }
+  },
+
+  async getAll(): Promise<ApiResponse<BatchHistory[]>> {
+    try {
+      const response = await fetch(`${API_CONFIG.PHP_BASE_URL}/history.php?action=list`, {
+        credentials: 'include',
+      });
+      return await response.json();
+    } catch (error) {
+      return { success: false, error: 'Connection failed' };
+    }
+  },
+
+  async getById(id: number): Promise<ApiResponse<BatchHistory>> {
+    try {
+      const response = await fetch(`${API_CONFIG.PHP_BASE_URL}/history.php?action=get&id=${id}`, {
+        credentials: 'include',
+      });
+      return await response.json();
+    } catch (error) {
+      return { success: false, error: 'Connection failed' };
+    }
+  },
+
+  async delete(id: number): Promise<ApiResponse<null>> {
+    try {
+      const response = await fetch(`${API_CONFIG.PHP_BASE_URL}/history.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'delete', id }),
+      });
+      return await response.json();
+    } catch (error) {
+      return { success: false, error: 'Connection failed' };
     }
   },
 };

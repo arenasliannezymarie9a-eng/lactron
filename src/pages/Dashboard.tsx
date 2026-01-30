@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Helmet } from "react-helmet-async";
-import { Plus } from "lucide-react";
+import { Save } from "lucide-react";
+import { toast } from "sonner";
 import MeshBackground from "@/components/ui/MeshBackground";
 import DashboardNav from "@/components/dashboard/DashboardNav";
 import MetaStrip from "@/components/dashboard/MetaStrip";
@@ -9,8 +10,9 @@ import StatusHero from "@/components/dashboard/StatusHero";
 import MolecularFingerprint from "@/components/dashboard/MolecularFingerprint";
 import ShelfLifeCard from "@/components/dashboard/ShelfLifeCard";
 import CreateBatchModal from "@/components/dashboard/CreateBatchModal";
+import BatchHistoryModal from "@/components/dashboard/BatchHistoryModal";
 import { Button } from "@/components/ui/button";
-import { batchAPI, sensorAPI, Batch, SensorReading } from "@/lib/api";
+import { batchAPI, sensorAPI, historyAPI, Batch, SensorReading } from "@/lib/api";
 
 type MilkStatus = "good" | "spoiled";
 
@@ -33,6 +35,8 @@ const Dashboard = () => {
   const [currentBatch, setCurrentBatch] = useState<Batch | null>(null);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isSavingBatch, setIsSavingBatch] = useState(false);
 
   useEffect(() => {
     if (isDark) {
@@ -94,6 +98,34 @@ const Dashboard = () => {
     }
   };
 
+  const handleSaveBatch = async () => {
+    if (!currentBatch) {
+      toast.error("No batch to save");
+      return;
+    }
+
+    setIsSavingBatch(true);
+    const grade = status === "good" ? "GOOD" : "SPOILED";
+    
+    const response = await historyAPI.save(
+      currentBatch.batch_id,
+      currentBatch.collector_name,
+      currentBatch.collection_datetime,
+      sensorData.ethanol,
+      sensorData.ammonia,
+      sensorData.h2s,
+      grade,
+      shelfLife
+    );
+
+    if (response.success) {
+      toast.success("Batch saved to history successfully!");
+    } else {
+      toast.error(response.error || "Failed to save batch");
+    }
+    setIsSavingBatch(false);
+  };
+
   const grade = status === "good" ? "GRADE: GOOD" : "GRADE: SPOILED";
 
   return (
@@ -113,19 +145,29 @@ const Dashboard = () => {
           transition={{ duration: 0.5 }}
           className="max-w-6xl mx-auto"
         >
-          <DashboardNav isDark={isDark} onToggleTheme={() => setIsDark(!isDark)} />
+          <DashboardNav
+            isDark={isDark}
+            onToggleTheme={() => setIsDark(!isDark)}
+            onAddNewBatch={() => setIsModalOpen(true)}
+            onSaveBatch={handleSaveBatch}
+            onViewHistory={() => setIsHistoryModalOpen(true)}
+            hasBatchToSave={!!currentBatch}
+          />
           
           <div className="flex items-center gap-3 mb-5">
             <div className="flex-1">
               <MetaStrip batch={currentBatch} />
             </div>
-            <Button
-              onClick={() => setIsModalOpen(true)}
-              className="rounded-xl h-11 print:hidden"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              New Batch
-            </Button>
+            {currentBatch && (
+              <Button
+                onClick={handleSaveBatch}
+                disabled={isSavingBatch}
+                className="rounded-xl h-11 print:hidden"
+              >
+                <Save className="w-4 h-4 mr-2" />
+                {isSavingBatch ? "Saving..." : "Save Batch"}
+              </Button>
+            )}
           </div>
           
           <motion.div
@@ -169,6 +211,11 @@ const Dashboard = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onBatchCreated={loadBatches}
+      />
+
+      <BatchHistoryModal
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
       />
     </>
   );
