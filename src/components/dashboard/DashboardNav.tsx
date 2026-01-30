@@ -1,25 +1,24 @@
 import { motion } from "framer-motion";
-import { Sun, Moon, LogOut } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
-import { authAPI } from "@/lib/api";
 import lactronLogo from "@/assets/lactron-logo.png";
+import ProfileDropdown from "./ProfileDropdown";
 
 interface DashboardNavProps {
   isDark: boolean;
   onToggleTheme: () => void;
+  onAddNewBatch: () => void;
+  onSaveBatch: () => void;
+  onViewHistory: () => void;
+  hasBatchToSave: boolean;
 }
 
-const DashboardNav = ({ isDark, onToggleTheme }: DashboardNavProps) => {
-  const navigate = useNavigate();
-
-  const handleLogout = async () => {
-    await authAPI.logout();
-    toast.success("Logged out successfully");
-    navigate("/");
-  };
-
+const DashboardNav = ({
+  isDark,
+  onToggleTheme,
+  onAddNewBatch,
+  onSaveBatch,
+  onViewHistory,
+  hasBatchToSave,
+}: DashboardNavProps) => {
   return (
     <motion.nav
       initial={{ opacity: 0, y: -20 }}
@@ -45,31 +44,16 @@ const DashboardNav = ({ isDark, onToggleTheme }: DashboardNavProps) => {
         </div>
       </div>
 
-      {/* Hidden during print */}
-      <div className="flex items-center gap-2 print:hidden">
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={onToggleTheme}
-          className="rounded-xl w-10 h-10"
-        >
-          <motion.div
-            key={isDark ? "dark" : "light"}
-            initial={{ rotate: -90, opacity: 0 }}
-            animate={{ rotate: 0, opacity: 1 }}
-            transition={{ duration: 0.3 }}
-          >
-            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </motion.div>
-        </Button>
-        <Button
-          variant="outline"
-          onClick={handleLogout}
-          className="rounded-xl h-10 text-destructive border-destructive/20 hover:bg-destructive/10"
-        >
-          <LogOut className="w-4 h-4 mr-2" />
-          Logout
-        </Button>
+      {/* Profile Dropdown - Hidden during print */}
+      <div className="print:hidden">
+        <ProfileDropdown
+          isDark={isDark}
+          onToggleTheme={onToggleTheme}
+          onAddNewBatch={onAddNewBatch}
+          onSaveBatch={onSaveBatch}
+          onViewHistory={onViewHistory}
+          hasBatchToSave={hasBatchToSave}
+        />
       </div>
     </motion.nav>
   );
