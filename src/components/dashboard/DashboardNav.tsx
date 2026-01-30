@@ -1,9 +1,10 @@
 import { motion } from "framer-motion";
-import { Zap, Sun, Moon, LogOut } from "lucide-react";
+import { Sun, Moon, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { authAPI } from "@/lib/api";
+import lactronLogo from "@/assets/lactron-logo.png";
 
 interface DashboardNavProps {
   isDark: boolean;
@@ -27,18 +28,19 @@ const DashboardNav = ({ isDark, onToggleTheme }: DashboardNavProps) => {
       className="glass-card rounded-2xl px-6 py-4 mb-5 flex items-center justify-between"
     >
       <div className="flex items-center gap-3">
-        <motion.div
-          whileHover={{ rotate: 15 }}
-          className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center"
-        >
-          <Zap className="w-6 h-6 text-primary-foreground" />
-        </motion.div>
+        <motion.img
+          src={lactronLogo}
+          alt="LACTRON"
+          className="w-10 h-10 object-contain"
+          whileHover={{ rotate: 10, scale: 1.05 }}
+          transition={{ type: "spring", stiffness: 400 }}
+        />
         <div>
-          <h1 className="text-xl font-extrabold tracking-tight">
-            <span className="text-primary">LACTRON</span>
+          <h1 className="text-xl font-extrabold tracking-tight text-primary">
+            LACTRON
           </h1>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
-            Neural Milk Analysis
+          <p className="text-[10px] font-bold text-foreground tracking-wide">
+            Intelligence in Every Drop.
           </p>
         </div>
       </div>
