@@ -1,9 +1,21 @@
 // LACTRON API Configuration and Services
 
+// NOTE:
+// - Port 8080 is often already used locally (and Vite may auto-switch ports).
+// - Default to 8083 for the PHP API, but allow overriding via Vite env vars.
+//   Example: VITE_PHP_BASE_URL=http://localhost:9000/api
+const DEFAULT_PHP_BASE_URL = "http://localhost:8083/api";
+
 const API_CONFIG = {
-  PHP_BASE_URL: 'http://localhost:8080/api',
-  FLASK_BASE_URL: 'http://localhost:5000',
-};
+  PHP_BASE_URL:
+    import.meta.env.VITE_PHP_BASE_URL ||
+    import.meta.env.VITE_PHP_API_URL ||
+    DEFAULT_PHP_BASE_URL,
+  FLASK_BASE_URL: import.meta.env.VITE_FLASK_BASE_URL || "http://localhost:5000",
+} as const;
+
+const PHP_BACKEND_UNAVAILABLE_MESSAGE =
+  "Backend not available. Start the PHP API (example): php -S localhost:8083 -t backend/php";
 
 // Types
 export interface User {
@@ -68,7 +80,7 @@ export const authAPI = {
       });
       return await response.json();
     } catch (error) {
-      return { success: false, error: 'Backend not available. Please run the PHP server locally (php -S localhost:8080 -t backend/php/api)' };
+      return { success: false, error: PHP_BACKEND_UNAVAILABLE_MESSAGE };
     }
   },
 
@@ -91,7 +103,7 @@ export const authAPI = {
       });
       return await response.json();
     } catch (error) {
-      return { success: false, error: 'Backend not available. Please run the PHP server locally (php -S localhost:8080 -t backend/php/api)' };
+      return { success: false, error: PHP_BACKEND_UNAVAILABLE_MESSAGE };
     }
   },
 
@@ -188,7 +200,7 @@ export const sensorAPI = {
       const response = await fetch(url, { credentials: 'include' });
       return await response.json();
     } catch (error) {
-      return { success: false, error: 'Backend not available. Please run the PHP server locally (php -S localhost:8080 -t backend/php/api)' };
+      return { success: false, error: PHP_BACKEND_UNAVAILABLE_MESSAGE };
     }
   },
 
