@@ -47,51 +47,51 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
             initial={{ scale: 0, opacity: 0, rotate: -180 }}
             animate={{ scale: 1, opacity: 1, rotate: 0 }}
             transition={{
-              duration: 1,
+              duration: 1.2,
               ease: [0.34, 1.56, 0.64, 1], // Custom spring-like easing
-              opacity: { duration: 0.6 },
+              opacity: { duration: 0.8 },
             }}
-            className="relative"
+            className="relative flex items-center justify-center"
           >
             {/* Glow effect behind logo */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 0.5, scale: 1.2 }}
-              transition={{ delay: 0.5, duration: 1, ease: "easeOut" }}
-              className="absolute inset-0 blur-3xl bg-primary/30 rounded-full"
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: 0.4, scale: 1.4 }}
+              transition={{ delay: 0.6, duration: 1.2, ease: "easeOut" }}
+              className="absolute w-56 h-56 md:w-72 md:h-72 lg:w-80 lg:h-80 blur-3xl bg-primary/25 rounded-full"
             />
             
-            {/* Logo image */}
+            {/* Logo image - significantly larger for visual dominance */}
             <motion.img
               src={lactronLogo}
               alt="LACTRON Logo"
-              className="w-32 h-32 md:w-40 md:h-40 object-contain relative z-10 drop-shadow-2xl"
+              className="w-48 h-48 md:w-64 md:h-64 lg:w-72 lg:h-72 object-contain relative z-10 drop-shadow-2xl"
               initial={{ filter: "brightness(0)" }}
               animate={{ filter: "brightness(1)" }}
               transition={{ delay: 0.3, duration: 0.8 }}
             />
 
-            {/* Pulse ring effect */}
+            {/* Pulse ring effect - scaled to match larger logo */}
             <motion.div
-              initial={{ scale: 1, opacity: 0.6 }}
-              animate={{ scale: 2, opacity: 0 }}
+              initial={{ scale: 0.9, opacity: 0.5 }}
+              animate={{ scale: 1.8, opacity: 0 }}
               transition={{
-                delay: 0.8,
-                duration: 1.2,
+                delay: 0.9,
+                duration: 1.4,
                 ease: "easeOut",
                 repeat: 1,
-                repeatDelay: 0.3,
+                repeatDelay: 0.4,
               }}
-              className="absolute inset-0 border-2 border-primary rounded-full"
+              className="absolute w-48 h-48 md:w-64 md:h-64 lg:w-72 lg:h-72 border-2 border-primary/60 rounded-full"
             />
           </motion.div>
 
           {/* Tagline */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={showTagline ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.8, ease: "easeOut" }}
-            className="mt-8 text-center"
+            className="mt-10 md:mt-12 text-center"
           >
             <motion.h1
               className="text-2xl md:text-3xl font-light tracking-wide text-foreground"
