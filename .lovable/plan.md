@@ -1,228 +1,237 @@
 
 
-# Dashboard UX Refactor Plan
+# LACTRON Database Schema Optimization and UX Improvements
 
-## Overview
+## Issues Identified
 
-This plan addresses the usability issues with the current dashboard by introducing a clear, guided workflow for batch management and milk quality analysis. The main problems are:
+### 1. Database Schema Redundancy
+The current schema has two tables storing batch information:
 
-1. **No clear starting point** - Users see results immediately without understanding what to do first
-2. **Batch creation is hidden** - Users must find it in the profile dropdown menu
-3. **No batch selection** - Users can't switch between batches or see existing ones
-4. **Database sync issues** - Batches created don't appear due to missing refresh after creation
+| Table | Purpose | Fields |
+|-------|---------|--------|
+| `batches` | Active monitoring batches | batch_id, user_id, collector_name, collection_datetime, status |
+| `batch_history` | Saved/archived analysis results | batch_id, user_id, collector_name, collection_datetime, ethanol, ammonia, h2s, grade, shelf_life |
+
+**Analysis**: This is NOT redundant. The design is intentional:
+- `batches` = Active work items (what you're currently monitoring)
+- `batch_history` = Completed snapshots (saved analysis results with sensor data at that moment)
+
+However, there's a minor issue: `sensor_readings` already stores individual sensor readings linked to batches, but `batch_history` stores a single snapshot. This is acceptable for the "save final result" workflow.
+
+**Recommendation**: Keep current schema but ensure clear workflow separation.
+
+### 2. Login Session Persistence Missing
+Currently, when users reload the page:
+- The frontend does not check for existing PHP sessions
+- Users are redirected to login every time
+- No session validation on initial load
+
+### 3. UI: Batches Not Showing in Dropdown
+The `WelcomeState` and `BatchSelector` components receive batches from the API, but:
+- If the PHP backend returns batches from a different user, they won't show
+- If session expires, the API returns "Not authenticated" and frontend shows empty list
+- No loading state feedback when batches are being fetched
+
+### 4. UI: No Back Button from Batch View
+When a batch is selected, users cannot deselect it to return to the Welcome state.
 
 ---
 
-## Solution: Guided Dashboard with Batch Management Panel
+## Proposed Solution
 
-The refactored dashboard will have two states:
+### Phase 1: Session Persistence (PHP + Frontend)
+
+**PHP Changes** (`backend/php/api/auth.php`):
+- Already has `check` action that validates session
+- No changes needed on PHP side
+
+**Frontend Changes** (`src/pages/Index.tsx` and `src/pages/Dashboard.tsx`):
+- Add session check on initial load
+- If authenticated, redirect to dashboard
+- If not authenticated on dashboard, redirect to login
 
 ```text
-+------------------------------------------------------------------+
-|                     EMPTY STATE (No Batch)                        |
-+------------------------------------------------------------------+
-|  [Nav Bar with Logo + Profile Menu]                              |
-|                                                                  |
-|  +------------------------------------------------------------+  |
-|  |              Welcome Card (Full Width)                      |  |
-|  |                                                            |  |
-|  |     "Start by creating or selecting a batch"               |  |
-|  |                                                            |  |
-|  |     [+ Create New Batch]     [Select Existing Batch v]     |  |
-|  |                                                            |  |
-|  +------------------------------------------------------------+  |
-|                                                                  |
-|  (Sensor cards and status hero are hidden or greyed out)        |
-+------------------------------------------------------------------+
-
-+------------------------------------------------------------------+
-|                   ACTIVE STATE (Batch Selected)                   |
-+------------------------------------------------------------------+
-|  [Nav Bar]                                                       |
-|                                                                  |
-|  +------------------------------------------------------------+  |
-|  | Batch Selector Strip                                        |  |
-|  | [LAC-2025-001 v]  Collector: John  |  Time: Jan 31, 09:00  |  |
-|  |                                 [+ New]  [Save]  [History] |  |
-|  +------------------------------------------------------------+  |
-|                                                                  |
-|  [Status Hero - Good/Spoiled]                                    |
-|                                                                  |
-|  +----------------------------+  +---------------------------+   |
-|  |  Molecular Fingerprint     |  |  Shelf Life Card          |   |
-|  |  (Sensor Charts)           |  |  (Prediction + Tips)      |   |
-|  +----------------------------+  +---------------------------+   |
-+------------------------------------------------------------------+
+                         +-------------------+
+                         |   App Loads (/)   |
+                         +--------+----------+
+                                  |
+                         Check PHP Session
+                         (authAPI.checkSession)
+                                  |
+                    +-------------+-------------+
+                    |                           |
+              Authenticated              Not Authenticated
+                    |                           |
+                    v                           v
+            Redirect to              Show Login Page
+            /dashboard
 ```
 
----
+### Phase 2: Dashboard Batch Loading Fix
 
-## Components to Create/Modify
+**Root Cause**: The `loadBatches` function works, but:
+1. Session may not be valid (user not logged in or session expired)
+2. No error handling shown to user when API fails
 
-### 1. NEW: Batch Selector Component
-**File:** `src/components/dashboard/BatchSelector.tsx`
+**Fix**:
+- Add authentication check before loading batches
+- Show toast error if session is invalid
+- Redirect to login if not authenticated
 
-A dropdown/strip component that:
-- Shows currently selected batch with key info
-- Allows switching between existing batches
-- Has quick action buttons: Create New, Save, View History
-- Displays empty state when no batches exist
+### Phase 3: Back Button from Batch View
 
-### 2. NEW: Welcome State Component
-**File:** `src/components/dashboard/WelcomeState.tsx`
-
-Displayed when no batch is selected:
-- Clean, welcoming design matching the LACTRON branding
-- Two primary actions: "Create New Batch" or "Select Existing"
-- Brief explanation of the workflow
-
-### 3. MODIFY: Dashboard Page
-**File:** `src/pages/Dashboard.tsx`
-
-Changes:
-- Add conditional rendering based on whether a batch is selected
-- Add batch selector component below the nav
-- Move quick actions from profile dropdown to batch selector strip
-- Fix immediate data refresh after batch creation
-- Add loading states for better feedback
-
-### 4. MODIFY: Create Batch Modal
-**File:** `src/components/dashboard/CreateBatchModal.tsx`
-
-Changes:
-- On successful creation, immediately select the new batch
-- Force refresh of batch list after creation
-- Close modal and transition to active state smoothly
-
-### 5. MODIFY: Profile Dropdown
-**File:** `src/components/dashboard/ProfileDropdown.tsx`
-
-Changes:
-- Simplify to only contain: Greeting, Theme Toggle, Logout
-- Remove Add Batch/Save Batch (moved to batch selector strip)
-- Batch History stays as a secondary access point
+**Add a "Close Batch" button** to `BatchSelector`:
+- Clicking it sets `currentBatch` to `null`
+- Returns user to the Welcome state
+- Simple UX improvement
 
 ---
 
-## User Flow After Changes
+## Detailed Implementation Plan
 
-1. **Login** - User arrives at dashboard
-2. **Empty State** - Dashboard shows welcome card if no batches
-3. **Create/Select** - User creates new batch or selects existing one
-4. **Active Monitoring** - Dashboard shows full sensor data and predictions
-5. **Switch Batches** - User can switch between batches using the selector
-6. **Save to History** - When analysis is complete, save batch
-7. **View History** - Access saved records anytime
+### File: `src/pages/Index.tsx`
+Add session check on mount:
+- Call `authAPI.checkSession()` when page loads
+- If successful, navigate to `/dashboard`
+- If failed, show the Auth page normally
+
+### File: `src/pages/Dashboard.tsx`
+Add authentication guard:
+- On mount, call `authAPI.checkSession()`
+- If not authenticated, redirect to `/` (login page)
+- Add loading state while checking session
+- Pass `onCloseBatch` handler to `BatchSelector`
+
+### File: `src/components/dashboard/BatchSelector.tsx`
+Add close/back button:
+- New prop: `onCloseBatch: () => void`
+- Add X or ArrowLeft button to deselect current batch
+- Returns user to Welcome state
+
+### File: `src/components/dashboard/WelcomeState.tsx`
+Minor enhancements:
+- Show loading state if batches are still being fetched
+- Add better empty state messaging
 
 ---
 
-## Data Synchronization Fixes
+## Technical Details
 
-### Problem: Batches Not Showing
-The `loadBatches` function in Dashboard.tsx has a dependency issue that prevents proper refresh.
+### Session Persistence Flow
 
-### Fix:
-```typescript
-// Before: Has dependency that prevents update
-const loadBatches = useCallback(async () => {
-  const response = await batchAPI.getAll();
-  if (response.success && response.data) {
-    setBatches(response.data);
-    if (response.data.length > 0 && !currentBatch) { // Problem: checks currentBatch
-      setCurrentBatch(response.data[0]);
-    }
-  }
-}, [currentBatch]); // This dependency causes issues
-
-// After: Force update and proper selection
-const loadBatches = useCallback(async (selectLatest = false) => {
-  const response = await batchAPI.getAll();
-  if (response.success && response.data) {
-    setBatches(response.data);
-    if (selectLatest && response.data.length > 0) {
-      setCurrentBatch(response.data[0]); // Select the newest batch
-    }
-  }
-}, []); // No dependency on currentBatch
+```text
+User Opens App
+       |
+       v
++------+------+
+|  Index.tsx  |
++------+------+
+       |
+  checkSession()
+       |
+  +----+----+
+  |         |
+Success   Failure
+  |         |
+  v         v
+/dashboard  Show Auth
+       |
+       v
++------+------+
+| Dashboard   |
++------+------+
+       |
+  checkSession()
+       |
+  +----+----+
+  |         |
+Success   Failure
+  |         |
+  v         v
+Load      Redirect
+Batches   to Login
 ```
 
-### After Batch Creation:
-```typescript
-// In CreateBatchModal, after successful creation:
-onBatchCreated(true); // Signal to select the new batch
+### Code Changes Summary
 
-// In Dashboard:
-const handleBatchCreated = async (selectNew: boolean) => {
-  await loadBatches(selectNew);
+**`src/pages/Index.tsx`**:
+```typescript
+// Add session check
+useEffect(() => {
+  const checkAuth = async () => {
+    const response = await authAPI.checkSession();
+    if (response.success) {
+      navigate('/dashboard');
+    }
+  };
+  checkAuth();
+}, [navigate]);
+```
+
+**`src/pages/Dashboard.tsx`**:
+```typescript
+// Add auth check and close batch handler
+const [isAuthChecking, setIsAuthChecking] = useState(true);
+
+useEffect(() => {
+  const checkAuth = async () => {
+    const response = await authAPI.checkSession();
+    if (!response.success) {
+      navigate('/');
+      return;
+    }
+    setIsAuthChecking(false);
+    loadBatches();
+  };
+  checkAuth();
+}, []);
+
+const handleCloseBatch = () => {
+  setCurrentBatch(null);
 };
 ```
 
----
-
-## Technical Implementation Details
-
-### BatchSelector Component Structure:
-
+**`src/components/dashboard/BatchSelector.tsx`**:
 ```typescript
+// Add new prop and button
 interface BatchSelectorProps {
-  batches: Batch[];
-  currentBatch: Batch | null;
-  onSelectBatch: (batch: Batch) => void;
-  onCreateNew: () => void;
-  onSaveBatch: () => void;
-  onViewHistory: () => void;
-  isSaving: boolean;
+  // ... existing props
+  onCloseBatch: () => void;
 }
+
+// Add button in the UI
+<Button
+  variant="ghost"
+  size="sm"
+  onClick={onCloseBatch}
+  className="h-9 rounded-xl"
+>
+  <X className="w-4 h-4" />
+</Button>
 ```
 
-Key features:
-- Radix UI Select component for batch dropdown
-- Shows batch count badge
-- Displays selected batch's metadata inline
-- Quick action buttons on the right side
+### Database Schema: No Changes Needed
 
-### WelcomeState Component Structure:
+The current schema is correctly designed:
+- `batches`: Active monitoring sessions
+- `batch_history`: Saved analysis snapshots
+- `sensor_readings`: Time-series sensor data
 
-```typescript
-interface WelcomeStateProps {
-  onCreateBatch: () => void;
-  onSelectBatch: () => void;
-  hasBatches: boolean;
-}
-```
-
-Features:
-- Animated entrance with Framer Motion
-- LACTRON logo and branding
-- Clear call-to-action buttons
-- Subtle background matching the design system
+This separation allows:
+1. Creating a batch (just metadata)
+2. Receiving sensor readings over time (stored in sensor_readings)
+3. Saving a final snapshot (batch_history with current sensor values + grade)
 
 ---
 
-## Files to Create
+## Summary of Changes
 
-| File | Description |
-|------|-------------|
-| `src/components/dashboard/BatchSelector.tsx` | Batch dropdown + quick actions strip |
-| `src/components/dashboard/WelcomeState.tsx` | Empty state welcome card |
+| File | Change Type | Description |
+|------|-------------|-------------|
+| `src/pages/Index.tsx` | Modify | Add session check, redirect if logged in |
+| `src/pages/Dashboard.tsx` | Modify | Add auth guard, loading state, close batch handler |
+| `src/components/dashboard/BatchSelector.tsx` | Modify | Add close/back button |
+| `vite.config.ts` | Modify | Restore port 8080 (per system requirements) |
 
-## Files to Modify
-
-| File | Changes |
-|------|---------|
-| `src/pages/Dashboard.tsx` | Add conditional rendering, batch selection logic, fix refresh |
-| `src/components/dashboard/CreateBatchModal.tsx` | Add callback to select new batch after creation |
-| `src/components/dashboard/ProfileDropdown.tsx` | Simplify menu, remove batch actions |
-| `src/components/dashboard/MetaStrip.tsx` | Remove duplicate display (merged into BatchSelector) |
-
----
-
-## Summary of Benefits
-
-- **Clear starting point** - Users know exactly what to do first
-- **Easy batch access** - Visible dropdown for switching batches
-- **Proper data sync** - Immediate refresh after creating batches
-- **Streamlined workflow** - Logical progression from create to monitor to save
-- **Reduced confusion** - Actions are where users expect them
-- **Maintains existing design** - Uses glassmorphism and LACTRON branding consistently
+No database schema changes are needed - the current design is appropriate for the workflow.
 
