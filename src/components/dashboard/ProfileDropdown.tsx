@@ -4,8 +4,6 @@ import {
   User,
   Sun,
   Moon,
-  Plus,
-  Save,
   History,
   LogOut,
 } from "lucide-react";
@@ -23,19 +21,13 @@ import {
 interface ProfileDropdownProps {
   isDark: boolean;
   onToggleTheme: () => void;
-  onAddNewBatch: () => void;
-  onSaveBatch: () => void;
   onViewHistory: () => void;
-  hasBatchToSave: boolean;
 }
 
 const ProfileDropdown = ({
   isDark,
   onToggleTheme,
-  onAddNewBatch,
-  onSaveBatch,
   onViewHistory,
-  hasBatchToSave,
 }: ProfileDropdownProps) => {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
@@ -108,26 +100,6 @@ const ProfileDropdown = ({
                   {isDark ? "Light Mode" : "Dark Mode"}
                 </span>
               </DropdownMenuItem>
-
-              {/* Add New Batch */}
-              <DropdownMenuItem
-                onClick={onAddNewBatch}
-                className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg hover:bg-secondary/80 transition-colors"
-              >
-                <Plus className="w-4 h-4 text-primary" />
-                <span className="text-sm">Add New Batch</span>
-              </DropdownMenuItem>
-
-              {/* Save Batch - Only visible when there's a batch to save */}
-              {hasBatchToSave && (
-                <DropdownMenuItem
-                  onClick={onSaveBatch}
-                  className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg hover:bg-secondary/80 transition-colors"
-                >
-                  <Save className="w-4 h-4 text-status-good" />
-                  <span className="text-sm">Save Batch</span>
-                </DropdownMenuItem>
-              )}
 
               {/* Batch History */}
               <DropdownMenuItem
