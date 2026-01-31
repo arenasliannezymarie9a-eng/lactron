@@ -10,7 +10,7 @@ import { batchAPI } from "@/lib/api";
 interface CreateBatchModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onBatchCreated: () => void;
+  onBatchCreated: (selectNew?: boolean) => void;
 }
 
 const CreateBatchModal = ({ isOpen, onClose, onBatchCreated }: CreateBatchModalProps) => {
@@ -40,7 +40,7 @@ const CreateBatchModal = ({ isOpen, onClose, onBatchCreated }: CreateBatchModalP
       setCollectorName("");
       setCollectionDate("");
       setCollectionTime("");
-      onBatchCreated();
+      onBatchCreated(true); // Signal to select the new batch
       onClose();
     } else {
       toast.error(response.error || "Failed to create batch");

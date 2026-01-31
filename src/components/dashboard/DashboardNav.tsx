@@ -5,19 +5,13 @@ import ProfileDropdown from "./ProfileDropdown";
 interface DashboardNavProps {
   isDark: boolean;
   onToggleTheme: () => void;
-  onAddNewBatch: () => void;
-  onSaveBatch: () => void;
   onViewHistory: () => void;
-  hasBatchToSave: boolean;
 }
 
 const DashboardNav = ({
   isDark,
   onToggleTheme,
-  onAddNewBatch,
-  onSaveBatch,
   onViewHistory,
-  hasBatchToSave,
 }: DashboardNavProps) => {
   return (
     <motion.nav
@@ -49,10 +43,7 @@ const DashboardNav = ({
         <ProfileDropdown
           isDark={isDark}
           onToggleTheme={onToggleTheme}
-          onAddNewBatch={onAddNewBatch}
-          onSaveBatch={onSaveBatch}
           onViewHistory={onViewHistory}
-          hasBatchToSave={hasBatchToSave}
         />
       </div>
     </motion.nav>
