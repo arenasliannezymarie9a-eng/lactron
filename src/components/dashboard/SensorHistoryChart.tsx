@@ -19,7 +19,7 @@ const SensorHistoryChart = ({ data, sensorType, color, label }: SensorHistoryCha
     })
     .map((reading) => ({
       time: format(new Date(reading.created_at), "HH:mm:ss"),
-      value: reading[sensorType] ?? 0,
+      value: Number(reading[sensorType]) || 0,
     }))
     .reverse();
 
@@ -59,7 +59,7 @@ const SensorHistoryChart = ({ data, sensorType, color, label }: SensorHistoryCha
               fontSize: "12px",
             }}
             labelStyle={{ color: "hsl(var(--foreground))" }}
-            formatter={(value: number) => [`${value.toFixed(2)} ppm`, label]}
+            formatter={(value: number | string) => [`${Number(value).toFixed(2)} ppm`, label]}
           />
           <Line
             type="monotone"
