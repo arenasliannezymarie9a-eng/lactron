@@ -10,10 +10,10 @@ if ($method === 'GET') {
     $batchId = $_GET['batch_id'] ?? null;
     
     if ($action === 'latest') {
-        $sql = 'SELECT ethanol, ammonia, h2s, status, predicted_shelf_life as shelfLife, created_at as timestamp 
+        $sql = 'SELECT ethanol, ammonia, h2s, status, predicted_shelf_life, created_at 
                 FROM sensor_readings ORDER BY created_at DESC LIMIT 1';
         if ($batchId) {
-            $sql = 'SELECT ethanol, ammonia, h2s, status, predicted_shelf_life as shelfLife, created_at as timestamp 
+            $sql = 'SELECT ethanol, ammonia, h2s, status, predicted_shelf_life, created_at 
                     FROM sensor_readings WHERE batch_id = ? ORDER BY created_at DESC LIMIT 1';
         }
         $stmt = $batchId ? $pdo->prepare($sql) : $pdo->query($sql);
@@ -22,7 +22,7 @@ if ($method === 'GET') {
         echo json_encode(['success' => true, 'data' => $data ?: null]);
     } else if ($action === 'history') {
         $limit = intval($_GET['limit'] ?? 100);
-        $stmt = $pdo->prepare('SELECT ethanol, ammonia, h2s, status, predicted_shelf_life, created_at as timestamp 
+        $stmt = $pdo->prepare('SELECT ethanol, ammonia, h2s, status, predicted_shelf_life, created_at 
                                FROM sensor_readings WHERE batch_id = ? ORDER BY created_at DESC LIMIT ?');
         $stmt->execute([$batchId, $limit]);
         echo json_encode(['success' => true, 'data' => $stmt->fetchAll()]);
