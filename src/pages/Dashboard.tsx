@@ -1,17 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Helmet } from "react-helmet-async";
-import { Save } from "lucide-react";
 import { toast } from "sonner";
 import MeshBackground from "@/components/ui/MeshBackground";
 import DashboardNav from "@/components/dashboard/DashboardNav";
-import MetaStrip from "@/components/dashboard/MetaStrip";
+import BatchSelector from "@/components/dashboard/BatchSelector";
+import WelcomeState from "@/components/dashboard/WelcomeState";
 import StatusHero from "@/components/dashboard/StatusHero";
 import MolecularFingerprint from "@/components/dashboard/MolecularFingerprint";
 import ShelfLifeCard from "@/components/dashboard/ShelfLifeCard";
 import CreateBatchModal from "@/components/dashboard/CreateBatchModal";
 import BatchHistoryModal from "@/components/dashboard/BatchHistoryModal";
-import { Button } from "@/components/ui/button";
 import { batchAPI, sensorAPI, historyAPI, Batch, SensorReading } from "@/lib/api";
 
 type MilkStatus = "good" | "spoiled";
@@ -37,6 +36,7 @@ const Dashboard = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isSavingBatch, setIsSavingBatch] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (isDark) {
@@ -46,15 +46,18 @@ const Dashboard = () => {
     }
   }, [isDark]);
 
-  const loadBatches = useCallback(async () => {
+  // Fixed loadBatches without currentBatch dependency
+  const loadBatches = useCallback(async (selectLatest = false) => {
+    setIsLoading(true);
     const response = await batchAPI.getAll();
     if (response.success && response.data) {
       setBatches(response.data);
-      if (response.data.length > 0 && !currentBatch) {
+      if (selectLatest && response.data.length > 0) {
         setCurrentBatch(response.data[0]);
       }
     }
-  }, [currentBatch]);
+    setIsLoading(false);
+  }, []);
 
   const loadSensorHistory = useCallback(async () => {
     if (!currentBatch) return;
@@ -76,7 +79,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     loadBatches();
-  }, []);
+  }, [loadBatches]);
 
   useEffect(() => {
     if (currentBatch) {
@@ -126,6 +129,14 @@ const Dashboard = () => {
     setIsSavingBatch(false);
   };
 
+  const handleBatchCreated = async (selectNew: boolean = true) => {
+    await loadBatches(selectNew);
+  };
+
+  const handleSelectBatch = (batch: Batch) => {
+    setCurrentBatch(batch);
+  };
+
   const grade = status === "good" ? "GRADE: GOOD" : "GRADE: SPOILED";
 
   return (
@@ -148,69 +159,78 @@ const Dashboard = () => {
           <DashboardNav
             isDark={isDark}
             onToggleTheme={() => setIsDark(!isDark)}
-            onAddNewBatch={() => setIsModalOpen(true)}
-            onSaveBatch={handleSaveBatch}
             onViewHistory={() => setIsHistoryModalOpen(true)}
-            hasBatchToSave={!!currentBatch}
           />
-          
-          <div className="flex items-center gap-3 mb-5">
-            <div className="flex-1">
-              <MetaStrip batch={currentBatch} />
-            </div>
-            {currentBatch && (
-              <Button
-                onClick={handleSaveBatch}
-                disabled={isSavingBatch}
-                className="rounded-xl h-11 print:hidden"
-              >
-                <Save className="w-4 h-4 mr-2" />
-                {isSavingBatch ? "Saving..." : "Save Batch"}
-              </Button>
-            )}
-          </div>
-          
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="mb-5"
-          >
-            <StatusHero status={status} grade={grade} />
-          </motion.div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-            <div className="lg:col-span-3">
-              <MolecularFingerprint data={sensorData} history={sensorHistory} />
-            </div>
-            <div className="lg:col-span-2">
-              <ShelfLifeCard
-                days={shelfLife}
-                status={status}
-                batch={currentBatch}
-                onSimulate={simulateEvent}
+          <AnimatePresence mode="wait">
+            {!currentBatch ? (
+              <WelcomeState
+                key="welcome"
+                onCreateBatch={() => setIsModalOpen(true)}
+                onSelectBatch={handleSelectBatch}
+                batches={batches}
               />
-            </div>
-          </div>
+            ) : (
+              <motion.div
+                key="dashboard"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <BatchSelector
+                  batches={batches}
+                  currentBatch={currentBatch}
+                  onSelectBatch={handleSelectBatch}
+                  onCreateNew={() => setIsModalOpen(true)}
+                  onSaveBatch={handleSaveBatch}
+                  onViewHistory={() => setIsHistoryModalOpen(true)}
+                  isSaving={isSavingBatch}
+                />
+                
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="mb-5"
+                >
+                  <StatusHero status={status} grade={grade} />
+                </motion.div>
 
-          <motion.footer
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="text-center mt-8 text-xs text-muted-foreground"
-          >
-            <p className="mb-1">
-              <span className="font-semibold text-primary">LACTRON</span> - Solar-Powered IoT Smart System for Milk Quality Monitoring
-            </p>
-            <p>AI-Driven Spoilage Prediction using TensorFlow Regression Model</p>
-          </motion.footer>
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+                  <div className="lg:col-span-3">
+                    <MolecularFingerprint data={sensorData} history={sensorHistory} />
+                  </div>
+                  <div className="lg:col-span-2">
+                    <ShelfLifeCard
+                      days={shelfLife}
+                      status={status}
+                      batch={currentBatch}
+                      onSimulate={simulateEvent}
+                    />
+                  </div>
+                </div>
+
+                <motion.footer
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.3 }}
+                  className="text-center mt-8 text-xs text-muted-foreground"
+                >
+                  <p className="mb-1">
+                    <span className="font-semibold text-primary">LACTRON</span> - Solar-Powered IoT Smart System for Milk Quality Monitoring
+                  </p>
+                  <p>AI-Driven Spoilage Prediction using TensorFlow Regression Model</p>
+                </motion.footer>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       </div>
 
       <CreateBatchModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onBatchCreated={loadBatches}
+        onBatchCreated={handleBatchCreated}
       />
 
       <BatchHistoryModal
