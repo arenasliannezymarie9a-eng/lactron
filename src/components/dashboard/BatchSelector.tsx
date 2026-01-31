@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Hash, User, Clock, Plus, Save, History, ChevronDown } from "lucide-react";
+import { Hash, User, Clock, Plus, Save, History, X } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +18,7 @@ interface BatchSelectorProps {
   onCreateNew: () => void;
   onSaveBatch: () => void;
   onViewHistory: () => void;
+  onCloseBatch: () => void;
   isSaving: boolean;
 }
 
@@ -28,6 +29,7 @@ const BatchSelector = ({
   onCreateNew,
   onSaveBatch,
   onViewHistory,
+  onCloseBatch,
   isSaving,
 }: BatchSelectorProps) => {
   const formatCollectionTime = (datetime: string) => {
@@ -104,6 +106,17 @@ const BatchSelector = ({
 
         {/* Quick Actions */}
         <div className="flex items-center gap-2 print:hidden">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onCloseBatch}
+            className="h-9 rounded-xl gap-2"
+            title="Close batch and return to welcome screen"
+          >
+            <X className="w-4 h-4" />
+            <span className="hidden sm:inline">Close</span>
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
