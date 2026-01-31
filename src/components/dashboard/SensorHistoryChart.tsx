@@ -19,11 +19,7 @@ const SensorHistoryChart = ({ data, sensorType, color, label }: SensorHistoryCha
     })
     .map((reading) => ({
       time: format(new Date(reading.created_at), "HH:mm:ss"),
-      value: sensorType === "ethanol" 
-        ? (reading.ethanol ?? 0) / 5 
-        : sensorType === "ammonia" 
-          ? (reading.ammonia ?? 0) / 10 
-          : (reading.h2s ?? 0) / 100,
+      value: reading[sensorType] ?? 0,
     }))
     .reverse();
 

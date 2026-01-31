@@ -11,7 +11,7 @@ interface SensorData {
 }
 
 interface MolecularFingerprintProps {
-  data: SensorData;
+  data: SensorData | null;
   history: SensorReading[];
 }
 
@@ -37,64 +37,70 @@ const MolecularFingerprint = ({ data, history }: MolecularFingerprintProps) => {
         </div>
       </div>
 
-      <div className="space-y-6">
-        {/* Ethanol */}
-        <div>
-          <SensorCard
-            label="Ethanol"
-            value={data.ethanol / 5}
-            unit="ppm"
-            maxValue={20}
-            icon={Beaker}
-            color="primary"
-            delay={0}
-          />
-          <SensorHistoryChart
-            data={history}
-            sensorType="ethanol"
-            color="hsl(var(--primary))"
-            label="Ethanol"
-          />
-        </div>
+      {data ? (
+        <div className="space-y-6">
+          {/* Ethanol */}
+          <div>
+            <SensorCard
+              label="Ethanol"
+              value={data.ethanol}
+              unit="ppm"
+              maxValue={100}
+              icon={Beaker}
+              color="primary"
+              delay={0}
+            />
+            <SensorHistoryChart
+              data={history}
+              sensorType="ethanol"
+              color="hsl(var(--primary))"
+              label="Ethanol"
+            />
+          </div>
 
-        {/* Ammonia */}
-        <div>
-          <SensorCard
-            label="Ammonia"
-            value={data.ammonia / 10}
-            unit="ppm"
-            maxValue={10}
-            icon={Wind}
-            color="accent"
-            delay={0.1}
-          />
-          <SensorHistoryChart
-            data={history}
-            sensorType="ammonia"
-            color="hsl(var(--accent))"
-            label="Ammonia"
-          />
-        </div>
+          {/* Ammonia */}
+          <div>
+            <SensorCard
+              label="Ammonia"
+              value={data.ammonia}
+              unit="ppm"
+              maxValue={100}
+              icon={Wind}
+              color="accent"
+              delay={0.1}
+            />
+            <SensorHistoryChart
+              data={history}
+              sensorType="ammonia"
+              color="hsl(var(--accent))"
+              label="Ammonia"
+            />
+          </div>
 
-        {/* H2S */}
-        <div>
-          <SensorCard
-            label="H₂S (Hydrogen Sulfide)"
-            value={data.h2s / 100}
-            unit="ppm"
-            maxValue={1}
-            icon={Flame}
-            color="success"
-            delay={0.2}
-          />
-          <SensorHistoryChart
-            data={history}
-            sensorType="h2s"
-            color="hsl(var(--status-good))"
-            label="H₂S"
-          />
+          {/* H2S */}
+          <div>
+            <SensorCard
+              label="H₂S (Hydrogen Sulfide)"
+              value={data.h2s}
+              unit="ppm"
+              maxValue={50}
+              icon={Flame}
+              color="success"
+              delay={0.2}
+            />
+            <SensorHistoryChart
+              data={history}
+              sensorType="h2s"
+              color="hsl(var(--status-good))"
+              label="H₂S"
+            />
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="flex items-center justify-center h-48 text-muted-foreground">
+          <p>No sensor readings yet for this batch</p>
+        </div>
+      )}
     </motion.div>
   );
 };

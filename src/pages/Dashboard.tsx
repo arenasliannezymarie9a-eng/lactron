@@ -27,11 +27,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [isDark, setIsDark] = useState(false);
   const [status, setStatus] = useState<MilkStatus>("good");
-  const [sensorData, setSensorData] = useState<SensorData>({
-    ethanol: 15,
-    ammonia: 10,
-    h2s: 5,
-  });
+const [sensorData, setSensorData] = useState<SensorData | null>(null);
   const [shelfLife, setShelfLife] = useState(4.8);
   const [sensorHistory, setSensorHistory] = useState<SensorReading[]>([]);
   const [currentBatch, setCurrentBatch] = useState<Batch | null>(null);
@@ -77,6 +73,11 @@ const Dashboard = () => {
         });
         setStatus(latest.status);
         setShelfLife(latest.predicted_shelf_life);
+      } else {
+        // No readings yet for this batch
+        setSensorData(null);
+        setStatus("good");
+        setShelfLife(0);
       }
     }
   }, [currentBatch]);
