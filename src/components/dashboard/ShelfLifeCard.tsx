@@ -12,6 +12,8 @@ interface ShelfLifeCardProps {
 }
 
 const ShelfLifeCard = ({ days, status, batch, onSimulate }: ShelfLifeCardProps) => {
+  // Ensure days is a valid number, default to 0 if not
+  const safeDays = typeof days === 'number' && !isNaN(days) ? days : 0;
   const isGood = status === "good";
 
   const tips = isGood
@@ -64,7 +66,7 @@ const ShelfLifeCard = ({ days, status, batch, onSimulate }: ShelfLifeCardProps) 
         </div>
 
         <motion.div
-          key={days}
+          key={safeDays}
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: "spring", stiffness: 300, damping: 20 }}
@@ -72,7 +74,7 @@ const ShelfLifeCard = ({ days, status, batch, onSimulate }: ShelfLifeCardProps) 
             isGood ? "text-primary" : "text-status-danger"
           }`}
         >
-          {days.toFixed(1)}
+          {safeDays.toFixed(1)}
           <span className="text-xl text-muted-foreground font-medium ml-2">Days</span>
         </motion.div>
       </div>
