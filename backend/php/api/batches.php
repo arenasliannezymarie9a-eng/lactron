@@ -17,6 +17,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $action = $_GET['action'] ?? 'list';
     
     switch ($action) {
+        case 'esp_active':
+            // Return the most recently created batch for ESP32 (no session required)
+            // This allows ESP32 to sync with the server without authentication
+            $stmt = $pdo->query('
+                SELECT batch_id FROM batches 
+                ORDER BY created_at DESC LIMIT 1
+            ');
+            $batch = $stmt->fetch();
+            echo json_encode([
+                'success' => true, 
+                'batch_id' => $batch ? $batch['batch_id'] : null
+            ]);
+            break;
+
         case 'list':
             $stmt = $pdo->prepare('
                 SELECT b.*, 
