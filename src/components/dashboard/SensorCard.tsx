@@ -30,7 +30,8 @@ const colorMap = {
 };
 
 const SensorCard = ({ label, value, unit, maxValue, icon: Icon, color, delay = 0 }: SensorCardProps) => {
-  const percentage = Math.min((value / maxValue) * 100, 100);
+  const numericValue = Number(value) || 0;
+  const percentage = Math.min((numericValue / maxValue) * 100, 100);
   const colors = colorMap[color];
 
   return (
@@ -48,12 +49,12 @@ const SensorCard = ({ label, value, unit, maxValue, icon: Icon, color, delay = 0
           <span className="text-sm font-semibold">{label}</span>
         </div>
         <motion.span
-          key={value}
+          key={numericValue}
           initial={{ scale: 1.2, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           className={`font-mono text-sm font-bold ${colors.text}`}
         >
-          {value.toFixed(1)} <span className="text-muted-foreground font-normal">{unit}</span>
+          {numericValue.toFixed(1)} <span className="text-muted-foreground font-normal">{unit}</span>
         </motion.span>
       </div>
 
