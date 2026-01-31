@@ -2,9 +2,9 @@
 
 // NOTE:
 // - Port 8080 is often already used locally (and Vite may auto-switch ports).
-// - Default to 8083 for the PHP API, but allow overriding via Vite env vars.
+// - Default to 8080 for the PHP API, but allow overriding via Vite env vars.
 //   Example: VITE_PHP_BASE_URL=http://localhost:9000/api
-const DEFAULT_PHP_BASE_URL = "http://localhost:8083/api";
+const DEFAULT_PHP_BASE_URL = "http://localhost:8080/api";
 
 const API_CONFIG = {
   PHP_BASE_URL:
@@ -15,7 +15,7 @@ const API_CONFIG = {
 } as const;
 
 const PHP_BACKEND_UNAVAILABLE_MESSAGE =
-  "Backend not available. Start the PHP API (example): php -S localhost:8083 -t backend/php";
+  "Backend not available. Start the PHP API (example): php -S localhost:8080 -t backend/php";
 
 // Types
 export interface User {
