@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Helmet } from "react-helmet-async";
 import { toast } from "sonner";
@@ -11,7 +12,8 @@ import MolecularFingerprint from "@/components/dashboard/MolecularFingerprint";
 import ShelfLifeCard from "@/components/dashboard/ShelfLifeCard";
 import CreateBatchModal from "@/components/dashboard/CreateBatchModal";
 import BatchHistoryModal from "@/components/dashboard/BatchHistoryModal";
-import { batchAPI, sensorAPI, historyAPI, Batch, SensorReading } from "@/lib/api";
+import { Skeleton } from "@/components/ui/skeleton";
+import { authAPI, batchAPI, sensorAPI, historyAPI, Batch, SensorReading } from "@/lib/api";
 
 type MilkStatus = "good" | "spoiled";
 
@@ -22,6 +24,7 @@ interface SensorData {
 }
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [isDark, setIsDark] = useState(false);
   const [status, setStatus] = useState<MilkStatus>("good");
   const [sensorData, setSensorData] = useState<SensorData>({
@@ -37,6 +40,7 @@ const Dashboard = () => {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isSavingBatch, setIsSavingBatch] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
 
   useEffect(() => {
     if (isDark) {
@@ -77,9 +81,20 @@ const Dashboard = () => {
     }
   }, [currentBatch]);
 
+  // Auth check and initial load
   useEffect(() => {
-    loadBatches();
-  }, [loadBatches]);
+    const checkAuth = async () => {
+      const response = await authAPI.checkSession();
+      if (!response.success) {
+        toast.error("Session expired. Please log in again.");
+        navigate('/');
+        return;
+      }
+      setIsAuthChecking(false);
+      loadBatches();
+    };
+    checkAuth();
+  }, [navigate, loadBatches]);
 
   useEffect(() => {
     if (currentBatch) {
@@ -137,6 +152,28 @@ const Dashboard = () => {
     setCurrentBatch(batch);
   };
 
+  const handleCloseBatch = () => {
+    setCurrentBatch(null);
+  };
+
+  // Show loading while checking auth
+  if (isAuthChecking) {
+    return (
+      <div className="min-h-screen p-4 md:p-6">
+        <MeshBackground />
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="flex flex-col items-center gap-4">
+              <Skeleton className="h-20 w-20 rounded-full" />
+              <Skeleton className="h-4 w-48" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const grade = status === "good" ? "GRADE: GOOD" : "GRADE: SPOILED";
 
   return (
@@ -184,6 +221,7 @@ const Dashboard = () => {
                   onCreateNew={() => setIsModalOpen(true)}
                   onSaveBatch={handleSaveBatch}
                   onViewHistory={() => setIsHistoryModalOpen(true)}
+                  onCloseBatch={handleCloseBatch}
                   isSaving={isSavingBatch}
                 />
                 
