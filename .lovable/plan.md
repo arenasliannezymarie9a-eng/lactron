@@ -1,148 +1,134 @@
 
+# Dashboard Data Display Fix Plan
 
-# ESP32 Code Simplification Plan
+## Issues Identified
 
-## Current Issues
+After analyzing the codebase, I found several critical issues causing the dashboard to not display sensor data correctly:
 
-The existing ESP32 code has unnecessary complexity:
-1. **Web server hosting** - Serves a debug webpage which isn't needed since all data goes to the React dashboard
-2. **Local batch management** - Batch ID is hardcoded or set via serial commands instead of syncing with the server
-3. **Unnecessary memory usage** - WebServer library consumes RAM that could be freed
+### Issue 1: Field Name Mismatch in API Response
+The PHP API (`sensor_data.php`) returns data with field name `timestamp`, but the frontend `SensorReading` interface and `SensorHistoryChart` component expect `created_at`.
 
-## Proposed Architecture
-
-```text
-+----------------+                       +----------------+                 +------------------+
-|  ARDUINO NANO  |     UART (9600)       |     ESP32      |    HTTP POST   |   PHP Backend    |
-|  (Sensors)     |  ------------------>  |   (Gateway)    |  ----------->  |  sensor_data.php |
-+----------------+                       +----------------+                 +------------------+
-                                                |                                   |
-                                          On startup:                         Stores in:
-                                          1. Connect WiFi                    sensor_readings
-                                          2. Fetch active batch                    |
-                                             from server                           v
-                                          3. Forward sensor data          +------------------+
-                                             with batch_id                | React Dashboard  |
-                                                                          +------------------+
+**PHP Response (line 25-26 in sensor_data.php):**
+```sql
+SELECT ... created_at as timestamp FROM sensor_readings
 ```
 
-## Key Changes
+**Frontend expectation (SensorReading interface):**
+```typescript
+created_at: string;  // Expected field name
+```
 
-### 1. Remove Web Server
-- Delete `WebServer.h` include
-- Remove all web server functions (`setupWebServer`, `handleRoot`, `handleData`, `handleBatchChange`)
-- Remove `server.handleClient()` from loop
-- Reduce memory footprint significantly
+**SensorHistoryChart.tsx (line 17-21):**
+```typescript
+// Tries to access reading.created_at but PHP sends "timestamp"
+const date = new Date(reading.created_at);
+```
 
-### 2. Server-Synced Batch Selection
-Create a new PHP endpoint or add an action to `batches.php` that returns the currently "active" batch for the ESP32 to use. Two approaches:
+### Issue 2: Sensor Values Being Divided Twice
+The sensor values are being divided in two places:
+1. In `MolecularFingerprint.tsx` for SensorCard display (lines 45, 64, 83)
+2. In `SensorHistoryChart.tsx` for chart display (lines 22-26)
 
-**Option A: Use Latest Created Batch (Simple)**
-- ESP32 fetches from: `batches.php?action=esp_active`
-- Returns the most recently created batch's `batch_id`
-- No user intervention needed
+This causes the values to be inconsistent or too small.
 
-**Option B: Explicit Active Batch Flag (More Control)**
-- Add `is_active` column to batches table
-- Dashboard UI toggles which batch receives sensor data
-- ESP32 queries for the batch where `is_active = true`
+### Issue 3: Dashboard Uses Initial Fake Values When No Data
+When no sensor readings exist yet for a batch, the dashboard shows hardcoded values (`ethanol: 15, ammonia: 10, h2s: 5`) instead of indicating "No data":
 
-### 3. Simplified ESP32 Workflow
+```typescript
+const [sensorData, setSensorData] = useState<SensorData>({
+  ethanol: 15,  // Fake initial value
+  ammonia: 10,  // Fake initial value
+  h2s: 5,       // Fake initial value
+});
+```
+
+### Issue 4: loadSensorHistory Doesn't Handle Empty Results Properly
+When `sensorAPI.getHistory()` returns no data for a batch, the existing fake values remain displayed.
+
+---
+
+## Solution Overview
 
 ```text
-setup():
-  1. Connect to WiFi
-  2. Fetch active batch from server → BATCH_ID
-  
-loop():
-  1. Read UART data from Arduino
-  2. Parse CSV (ethanol, ammonia, h2s)
-  3. Send to PHP backend with current BATCH_ID
-  4. Check if batch changed (periodic refresh every 30 seconds)
++---------------+      Fixed Field Names      +------------------+      Correct Data      +----------------+
+| PHP Backend   | ----------------------->   | Frontend API     | ------------------>  | Dashboard      |
+| sensor_data   |    "created_at" instead    | SensorReading    |    Uses DB values    | Components     |
++---------------+    of "timestamp"          +------------------+    not fake data     +----------------+
 ```
 
 ---
 
-## Implementation Details
+## Detailed Implementation
 
-### New PHP Endpoint
-**File:** `backend/php/api/batches.php`
+### Fix 1: Update PHP sensor_data.php - Return Consistent Field Names
+Change the SQL alias from `timestamp` to `created_at` to match frontend expectations.
 
-Add a new action `esp_active` that returns the batch ID for ESP32:
+**File:** `backend/php/api/sensor_data.php`
+- Line 13-14: Change `created_at as timestamp` to just `created_at`
+- Line 16-17: Change `created_at as timestamp` to just `created_at`  
+- Line 25-26: Change `created_at as timestamp` to just `created_at`
 
-```php
-case 'esp_active':
-    // Return the most recently created batch for any user
-    // (ESP32 doesn't have session, so we return global active batch)
-    $stmt = $pdo->query('
-        SELECT batch_id FROM batches 
-        ORDER BY created_at DESC LIMIT 1
-    ');
-    $batch = $stmt->fetch();
-    echo json_encode([
-        'success' => true, 
-        'batch_id' => $batch ? $batch['batch_id'] : null
-    ]);
-    break;
+### Fix 2: Update Dashboard State - Handle No Data Gracefully  
+**File:** `src/pages/Dashboard.tsx`
+
+Instead of starting with fake values, initialize with `null` and show a proper "No data yet" state:
+
+```typescript
+// Change from fake initial values
+const [sensorData, setSensorData] = useState<SensorData | null>(null);
 ```
 
-### Revised ESP32 Code Structure
-
-```cpp
-// Includes - NO WebServer
-#include <WiFi.h>
-#include <HTTPClient.h>
-#include <ArduinoJson.h>
-
-// Configuration
-const char* WIFI_SSID = "YOUR_SSID";
-const char* WIFI_PASSWORD = "YOUR_PASSWORD";
-const char* PHP_SERVER_URL = "http://YOUR_PC_IP:8083/api/sensor_data.php";
-const char* BATCH_ENDPOINT = "http://YOUR_PC_IP:8083/api/batches.php?action=esp_active";
-
-// State
-String BATCH_ID = "";  // Fetched from server
-unsigned long lastBatchCheck = 0;
-const unsigned long BATCH_CHECK_INTERVAL = 30000;  // 30 seconds
-
-void setup() {
-  // Init Serial, UART, WiFi
-  connectWiFi();
-  fetchActiveBatch();  // Get initial batch from server
-}
-
-void loop() {
-  readArduinoData();  // Parse UART
-  
-  if (dataReady && intervalElapsed) {
-    sendToBackend();  // POST to PHP
-  }
-  
-  // Periodically refresh batch ID from server
-  if (millis() - lastBatchCheck > BATCH_CHECK_INTERVAL) {
-    fetchActiveBatch();
-    lastBatchCheck = millis();
-  }
-}
-
-void fetchActiveBatch() {
-  HTTPClient http;
-  http.begin(BATCH_ENDPOINT);
-  int code = http.GET();
-  
-  if (code == 200) {
-    String response = http.getString();
-    // Parse JSON to get batch_id
-    StaticJsonDocument<128> doc;
-    deserializeJson(doc, response);
-    if (doc["success"] && !doc["batch_id"].isNull()) {
-      BATCH_ID = doc["batch_id"].as<String>();
-      Serial.println("Active batch: " + BATCH_ID);
-    }
-  }
-  http.end();
+Update `loadSensorHistory` to handle empty data:
+```typescript
+if (response.data.length > 0) {
+  // Use real data
+} else {
+  // Set sensorData to null to show "No readings yet"
+  setSensorData(null);
 }
 ```
+
+### Fix 3: Update MolecularFingerprint - Show Real Values
+**File:** `src/components/dashboard/MolecularFingerprint.tsx`
+
+Remove the duplicate divisions that were causing values to be too small. Display raw values from the database without additional transformations (the Arduino already sends calibrated PPM values).
+
+Current (incorrect - divides values):
+```typescript
+value={data.ethanol / 5}  // Divides again
+```
+
+Fixed (use raw values):
+```typescript
+value={data.ethanol}  // Use actual database value
+```
+
+### Fix 4: Update SensorHistoryChart - Remove Unnecessary Divisions
+**File:** `src/components/dashboard/SensorHistoryChart.tsx`
+
+Remove the value transformations in the chart data mapping:
+
+Current (incorrect):
+```typescript
+value: sensorType === "ethanol" 
+  ? (reading.ethanol ?? 0) / 5 
+  : sensorType === "ammonia" 
+    ? (reading.ammonia ?? 0) / 10 
+    : (reading.h2s ?? 0) / 100,
+```
+
+Fixed (use raw values):
+```typescript
+value: reading[sensorType] ?? 0
+```
+
+### Fix 5: Update SensorCard Scales
+**File:** `src/components/dashboard/SensorCard.tsx` (via props in MolecularFingerprint)
+
+Adjust `maxValue` props to reflect actual sensor ranges based on the Arduino calibration:
+- Ethanol: MQ-3 outputs 0-100 ppm typically
+- Ammonia (NH3): 0-100 ppm range
+- H2S: 0-50 ppm range
 
 ---
 
@@ -150,41 +136,59 @@ void fetchActiveBatch() {
 
 | File | Changes |
 |------|---------|
-| `backend/esp32/lactron_esp32.ino` | Remove WebServer, add batch fetch from PHP |
-| `backend/php/api/batches.php` | Add `esp_active` action for ESP32 batch sync |
+| `backend/php/api/sensor_data.php` | Fix SQL field names (timestamp → created_at) |
+| `src/pages/Dashboard.tsx` | Handle null sensor data, show "No data" state |
+| `src/components/dashboard/MolecularFingerprint.tsx` | Remove value divisions, handle null data, adjust maxValue props |
+| `src/components/dashboard/SensorHistoryChart.tsx` | Remove value divisions, use raw values |
 
 ---
 
-## Complete Workflow After Changes
+## Expected Behavior After Fix
 
-1. **User creates batch** in React dashboard → stored in `batches` table
-2. **ESP32 starts** → connects to WiFi → calls `batches.php?action=esp_active`
-3. **Server returns** the latest batch's `batch_id`
-4. **Arduino sends sensor data** via UART → ESP32 receives
-5. **ESP32 POSTs** `{batch_id, ethanol, ammonia, h2s}` to `sensor_data.php`
-6. **PHP stores** in `sensor_readings` → calls Flask ML → returns prediction
-7. **Dashboard displays** real-time data for the selected batch
-8. **Every 30 seconds** → ESP32 re-checks active batch (in case user switched)
+1. **When selecting a batch with sensor data:**
+   - Dashboard fetches history from `sensor_data.php?action=history&batch_id=XXX`
+   - PHP returns records with correct `created_at` field
+   - Latest reading populates SensorCards with actual database values
+   - History chart shows all readings plotted over time
 
----
+2. **When selecting a batch with no sensor data:**
+   - Dashboard shows "No readings yet" message
+   - Charts display "No historical data available" (already implemented)
 
-## Benefits
-
-- **Simpler code** - ~150 lines removed (web server functions)
-- **Less memory** - No WebServer library loaded
-- **Server-synced** - Batch ID always matches what's in the dashboard
-- **No manual config** - Users don't need to set batch via Serial commands
-- **Automatic updates** - ESP32 detects when user switches batches
+3. **Real-time updates:**
+   - Every 5 seconds, dashboard re-fetches sensor history
+   - If ESP32 has sent new data, it appears immediately
 
 ---
 
-## Summary
+## Data Flow After Fix
 
-| Component | Before | After |
-|-----------|--------|-------|
-| Web Server | Yes (debug page) | Removed |
-| Batch ID Source | Hardcoded/Serial command | Fetched from PHP server |
-| Memory Usage | Higher (WebServer) | Lower |
-| Code Lines | ~360 | ~200 |
-| User Intervention | Required for batch switch | Automatic |
-
+```text
+1. User selects batch "LAC-2026-002"
+                    ↓
+2. Dashboard calls: sensorAPI.getHistory("LAC-2026-002", 20)
+                    ↓
+3. PHP executes: SELECT ethanol, ammonia, h2s, status, 
+                 predicted_shelf_life, created_at 
+                 FROM sensor_readings 
+                 WHERE batch_id = 'LAC-2026-002'
+                    ↓
+4. PHP returns: {
+     success: true,
+     data: [
+       { ethanol: 45.2, ammonia: 12.5, h2s: 3.8, status: "good", 
+         predicted_shelf_life: 5.2, created_at: "2026-01-31 10:30:00" },
+       ...
+     ]
+   }
+                    ↓
+5. Dashboard sets:
+   - sensorData = { ethanol: 45.2, ammonia: 12.5, h2s: 3.8 }
+   - status = "good"
+   - shelfLife = 5.2
+   - sensorHistory = [all readings]
+                    ↓
+6. Components render:
+   - SensorCard shows 45.2 ppm ethanol
+   - Chart shows historical trend
+```
