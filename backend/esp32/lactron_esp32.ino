@@ -1,17 +1,20 @@
 /*
- * LACTRON ESP32 Gateway Code (Simplified)
+ * LACTRON ESP32 Gateway Code
  * Receives sensor data from Arduino Nano via UART
  * Forwards data to PHP backend via HTTP POST
- * Fetches active batch ID from server (no local web server)
+ * Receives active batch ID from frontend via HTTP Server
  * 
  * Hardware Setup:
  * - Arduino TX → ESP32 GPIO16 (RX2)
  * - Arduino RX → ESP32 GPIO17 (TX2) [optional]
  * - Common GND between Arduino and ESP32
+ * 
+ * Static IP: 192.168.254.150
  */
 
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <WebServer.h>
 #include <ArduinoJson.h>
 
 // ============================================
@@ -22,16 +25,20 @@
 const char* WIFI_SSID = "YOUR_WIFI_SSID";
 const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 
+// Static IP Configuration
+IPAddress staticIP(192, 168, 254, 150);
+IPAddress gateway(192, 168, 254, 1);
+IPAddress subnet(255, 255, 255, 0);
+IPAddress dns(8, 8, 8, 8);
+
 // Backend Server Configuration
-// Your development machine IP: 192.168.254.100
-// Update this to match your computer's local IP address
 const char* PHP_SERVER_URL = "http://192.168.254.100:8080/api/sensor_data.php";
 const char* BATCH_ENDPOINT = "http://192.168.254.100:8080/api/batches.php?action=esp_active";
 
 // Send interval in milliseconds (throttle backend calls)
 const unsigned long SEND_INTERVAL = 5000;  // 5 seconds
 
-// Batch refresh interval (sync with server)
+// Batch refresh interval (fallback sync with server)
 const unsigned long BATCH_CHECK_INTERVAL = 30000;  // 30 seconds
 
 // ============================================
@@ -45,7 +52,10 @@ const unsigned long BATCH_CHECK_INTERVAL = 30000;  // 30 seconds
 // Global Variables
 // ============================================
 
-// Active batch ID (fetched from server)
+// HTTP Server for receiving commands from frontend
+WebServer server(80);
+
+// Active batch ID (set by frontend or fetched from server)
 String BATCH_ID = "";
 
 // Latest sensor values
@@ -68,7 +78,7 @@ bool dataReceived = false;
 void setup() {
   // Initialize Serial for debugging
   Serial.begin(115200);
-  Serial.println("\n=== LACTRON ESP32 Gateway (Simplified) ===");
+  Serial.println("\n=== LACTRON ESP32 Gateway ===");
   
   // Initialize Serial2 for Arduino UART
   Serial2.begin(UART_BAUD, SERIAL_8N1, ARDUINO_RX, ARDUINO_TX);
@@ -78,19 +88,27 @@ void setup() {
   pinMode(STATUS_LED, OUTPUT);
   digitalWrite(STATUS_LED, LOW);
   
-  // Connect to WiFi
+  // Connect to WiFi with static IP
   connectWiFi();
   
-  // Fetch active batch from server
+  // Setup HTTP server endpoints
+  setupHttpServer();
+  
+  // Fetch active batch from server (fallback)
   fetchActiveBatch();
   
   Serial.println("Setup complete. Waiting for Arduino data...");
+  Serial.print("HTTP Server running at: http://");
+  Serial.println(WiFi.localIP());
 }
 
 // ============================================
 // MAIN LOOP
 // ============================================
 void loop() {
+  // Handle incoming HTTP requests from frontend
+  server.handleClient();
+  
   // Read data from Arduino via UART
   readArduinoData();
   
@@ -104,7 +122,7 @@ void loop() {
     lastSendTime = millis();
   }
   
-  // Periodically refresh batch ID from server
+  // Periodically refresh batch ID from server (fallback if frontend doesn't push)
   if (millis() - lastBatchCheck >= BATCH_CHECK_INTERVAL) {
     fetchActiveBatch();
     lastBatchCheck = millis();
@@ -125,11 +143,16 @@ void loop() {
 }
 
 // ============================================
-// WiFi Connection
+// WiFi Connection with Static IP
 // ============================================
 void connectWiFi() {
   Serial.print("Connecting to WiFi: ");
   Serial.println(WIFI_SSID);
+  
+  // Configure static IP before connecting
+  if (!WiFi.config(staticIP, gateway, subnet, dns)) {
+    Serial.println("Static IP configuration failed!");
+  }
   
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   
@@ -142,7 +165,7 @@ void connectWiFi() {
   
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("\nWiFi connected!");
-    Serial.print("IP Address: ");
+    Serial.print("Static IP Address: ");
     Serial.println(WiFi.localIP());
   } else {
     Serial.println("\nWiFi connection failed. Will retry...");
@@ -150,11 +173,117 @@ void connectWiFi() {
 }
 
 // ============================================
-// Fetch Active Batch from Server
+// HTTP Server Setup for Frontend Commands
+// ============================================
+void setupHttpServer() {
+  // CORS preflight handler
+  server.on("/batch", HTTP_OPTIONS, handleCors);
+  server.on("/status", HTTP_OPTIONS, handleCors);
+  
+  // Set active batch (POST /batch)
+  server.on("/batch", HTTP_POST, handleSetBatch);
+  
+  // Get current batch (GET /batch)
+  server.on("/batch", HTTP_GET, handleGetBatch);
+  
+  // Get ESP32 status (GET /status)
+  server.on("/status", HTTP_GET, handleStatus);
+  
+  server.begin();
+  Serial.println("HTTP Server started on port 80");
+}
+
+void handleCors() {
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+  server.send(204);
+}
+
+void handleSetBatch() {
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+  
+  if (server.hasArg("plain")) {
+    String body = server.arg("plain");
+    Serial.print("Received batch update: ");
+    Serial.println(body);
+    
+    StaticJsonDocument<256> doc;
+    DeserializationError error = deserializeJson(doc, body);
+    
+    if (!error) {
+      String newBatchId = doc["batch_id"].as<String>();
+      BATCH_ID = newBatchId;
+      
+      Serial.print("Active batch set to: ");
+      Serial.println(BATCH_ID.length() > 0 ? BATCH_ID : "(cleared)");
+      
+      // Send success response
+      StaticJsonDocument<128> response;
+      response["success"] = true;
+      response["batch_id"] = BATCH_ID;
+      response["message"] = BATCH_ID.length() > 0 ? "Batch activated" : "Batch cleared";
+      
+      String responseJson;
+      serializeJson(response, responseJson);
+      server.send(200, "application/json", responseJson);
+    } else {
+      server.send(400, "application/json", "{\"success\":false,\"error\":\"Invalid JSON\"}");
+    }
+  } else {
+    server.send(400, "application/json", "{\"success\":false,\"error\":\"No body\"}");
+  }
+}
+
+void handleGetBatch() {
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  
+  StaticJsonDocument<128> response;
+  response["success"] = true;
+  response["batch_id"] = BATCH_ID;
+  response["has_batch"] = BATCH_ID.length() > 0;
+  
+  String responseJson;
+  serializeJson(response, responseJson);
+  server.send(200, "application/json", responseJson);
+}
+
+void handleStatus() {
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  
+  StaticJsonDocument<256> response;
+  response["success"] = true;
+  response["ip"] = WiFi.localIP().toString();
+  response["batch_id"] = BATCH_ID;
+  response["connected"] = WiFi.status() == WL_CONNECTED;
+  response["data_received"] = dataReceived;
+  response["uptime_ms"] = millis();
+  
+  // Latest sensor values
+  JsonObject sensors = response.createNestedObject("sensors");
+  sensors["ethanol"] = ethValue;
+  sensors["ammonia"] = nh3Value;
+  sensors["h2s"] = h2sValue;
+  
+  String responseJson;
+  serializeJson(response, responseJson);
+  server.send(200, "application/json", responseJson);
+}
+
+// ============================================
+// Fetch Active Batch from Server (Fallback)
 // ============================================
 void fetchActiveBatch() {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi not connected. Cannot fetch batch.");
+    return;
+  }
+  
+  // Skip if batch already set by frontend
+  if (BATCH_ID.length() > 0) {
+    Serial.println("Batch already set by frontend. Skipping server fetch.");
     return;
   }
   
@@ -178,12 +307,11 @@ void fetchActiveBatch() {
         String newBatchId = doc["batch_id"].as<String>();
         if (newBatchId != BATCH_ID) {
           BATCH_ID = newBatchId;
-          Serial.print("Active batch updated: ");
+          Serial.print("Active batch updated from server: ");
           Serial.println(BATCH_ID);
         }
       } else {
         Serial.println("No active batch found on server.");
-        BATCH_ID = "";
       }
     } else {
       Serial.println("Failed to parse batch response.");

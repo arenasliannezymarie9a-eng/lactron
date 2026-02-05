@@ -1,15 +1,17 @@
 // LACTRON API Configuration and Services
 //
 // Network Configuration:
-// - Frontend (Vite):  http://192.168.254.100:5173
+// - Frontend (Vite):  http://192.168.254.100:8080
 // - PHP Backend:      http://192.168.254.100:8080
 // - Flask ML Server:  http://192.168.254.100:5000
+// - ESP32 Gateway:    http://192.168.254.150 (static IP)
 //
-// The PHP backend runs on port 8080, NOT the same port as Vite.
+// The PHP backend runs on port 8080.
 // Start PHP with: php -S 192.168.254.100:8080 -t backend/php
 
 const DEFAULT_PHP_BASE_URL = "http://192.168.254.100:8080/api";
 const DEFAULT_FLASK_BASE_URL = "http://192.168.254.100:5000";
+const DEFAULT_ESP32_URL = "http://192.168.254.150";
 
 const API_CONFIG = {
   PHP_BASE_URL:
@@ -17,6 +19,7 @@ const API_CONFIG = {
     import.meta.env.VITE_PHP_API_URL ||
     DEFAULT_PHP_BASE_URL,
   FLASK_BASE_URL: import.meta.env.VITE_FLASK_BASE_URL || DEFAULT_FLASK_BASE_URL,
+  ESP32_URL: import.meta.env.VITE_ESP32_URL || DEFAULT_ESP32_URL,
 } as const;
 
 const PHP_BACKEND_UNAVAILABLE_MESSAGE =
@@ -402,6 +405,62 @@ export const historyAPI = {
       return await response.json();
     } catch (error) {
       return { success: false, error: 'Connection failed' };
+    }
+  },
+};
+
+// ESP32 API (Direct communication with ESP32)
+export const esp32API = {
+  async setActiveBatch(batchId: string): Promise<ApiResponse<{ batch_id: string }>> {
+    try {
+      const response = await fetch(`${API_CONFIG.ESP32_URL}/batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ batch_id: batchId }),
+      });
+      return await response.json();
+    } catch (error) {
+      console.warn('ESP32 not reachable, batch will sync via polling');
+      return { success: false, error: 'ESP32 not reachable' };
+    }
+  },
+
+  async clearBatch(): Promise<ApiResponse<null>> {
+    try {
+      const response = await fetch(`${API_CONFIG.ESP32_URL}/batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ batch_id: '' }),
+      });
+      return await response.json();
+    } catch (error) {
+      console.warn('ESP32 not reachable');
+      return { success: false, error: 'ESP32 not reachable' };
+    }
+  },
+
+  async getBatch(): Promise<ApiResponse<{ batch_id: string; has_batch: boolean }>> {
+    try {
+      const response = await fetch(`${API_CONFIG.ESP32_URL}/batch`);
+      return await response.json();
+    } catch (error) {
+      return { success: false, error: 'ESP32 offline' };
+    }
+  },
+
+  async getStatus(): Promise<ApiResponse<{
+    ip: string;
+    batch_id: string;
+    connected: boolean;
+    data_received: boolean;
+    uptime_ms: number;
+    sensors: { ethanol: number; ammonia: number; h2s: number };
+  }>> {
+    try {
+      const response = await fetch(`${API_CONFIG.ESP32_URL}/status`);
+      return await response.json();
+    } catch (error) {
+      return { success: false, error: 'ESP32 offline' };
     }
   },
 };

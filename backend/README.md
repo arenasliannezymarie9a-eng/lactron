@@ -6,9 +6,10 @@ All services bind to your machine's network IP (e.g., `192.168.254.100`) to enab
 
 | Service | Port | URL |
 |---------|------|-----|
-| Frontend (Vite) | 5173 | http://192.168.254.100:5173 |
+| Frontend (Vite) | 8080 | http://192.168.254.100:8080 |
 | PHP Backend | 8080 | http://192.168.254.100:8080 |
 | Flask ML Server | 5000 | http://192.168.254.100:5000 |
+| ESP32 Gateway | 80 | http://192.168.254.150 |
 
 ## Quick Start
 
@@ -35,18 +36,89 @@ python train_model.py  # First time only
 python app.py --host 0.0.0.0
 ```
 
-### 4. Frontend (Port 5173)
+### 4. Frontend (Port 8080)
 ```bash
 # From project root
 npm run dev
-# Access at: http://192.168.254.100:5173
+# Access at: http://192.168.254.100:8080
 ```
 
 ### 5. ESP32
 - Open `esp32/lactron_esp32.ino` in Arduino IDE
-- Update WiFi credentials
+- Update WiFi credentials (WIFI_SSID, WIFI_PASSWORD)
 - Verify server IP is set to your machine's IP
 - Upload to ESP32
+- ESP32 will get static IP: **192.168.254.150**
 
 ### Sign Up & Login
 Create a new account via the Sign Up tab in the web app.
+
+## ESP32 Static IP Configuration
+
+The ESP32 is configured with a static IP to enable bidirectional communication:
+
+| Setting | Value |
+|---------|-------|
+| IP Address | 192.168.254.150 |
+| Gateway | 192.168.254.1 |
+| Subnet Mask | 255.255.255.0 |
+| DNS | 8.8.8.8 |
+
+## ESP32 HTTP Endpoints
+
+The ESP32 runs a web server on port 80 to receive commands from the frontend:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/batch` | POST | Set active batch ID. Body: `{"batch_id": "..."}` |
+| `/batch` | GET | Get current batch ID |
+| `/status` | GET | Get ESP32 status (IP, batch, sensors, uptime) |
+
+### Example: Set Active Batch
+```bash
+curl -X POST http://192.168.254.150/batch \
+  -H "Content-Type: application/json" \
+  -d '{"batch_id": "BATCH-001"}'
+```
+
+### Example: Get Status
+```bash
+curl http://192.168.254.150/status
+```
+
+Response:
+```json
+{
+  "success": true,
+  "ip": "192.168.254.150",
+  "batch_id": "BATCH-001",
+  "connected": true,
+  "data_received": true,
+  "uptime_ms": 123456,
+  "sensors": {
+    "ethanol": 15.2,
+    "ammonia": 8.5,
+    "h2s": 3.1
+  }
+}
+```
+
+## Data Flow
+
+```text
+1. User selects batch in Dashboard
+   └─> Frontend POSTs to ESP32 /batch endpoint
+   
+2. ESP32 receives batch activation
+   └─> Starts sending sensor data to PHP backend
+   
+3. Arduino sends sensor data via UART
+   └─> ESP32 parses and forwards to PHP
+   
+4. PHP backend receives sensor data
+   └─> Calls Flask ML for prediction
+   └─> Stores in MySQL database
+   
+5. Dashboard polls sensor_data.php
+   └─> Displays real-time updates
+```
