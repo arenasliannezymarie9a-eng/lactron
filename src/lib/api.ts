@@ -10,7 +10,7 @@
 // ESP32 sends data directly to: http://192.168.8.145/lactron/api/
 
 // For browser requests (Vite proxy handles /api -> localhost:80/lactron/api)
-const DEFAULT_PHP_BASE_URL = "/api";
+const DEFAULT_PHP_BASE_URL = "/backend/php/api";
 const DEFAULT_FLASK_BASE_URL = "http://localhost:5000";
 const DEFAULT_ESP32_URL = "http://192.168.8.150";
 

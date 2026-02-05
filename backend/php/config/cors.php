@@ -7,10 +7,10 @@ $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 
 // Explicit allowlist (exact matches)
 $allowedOrigins = [
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
+    'http://localhost:80',
+    'http://127.0.0.1:80',
     'http://localhost:8080',
-    'http://192.168.8.145:5173',
+    'http://192.168.8.145',
     'http://192.168.8.145:8080',
 ];
 
