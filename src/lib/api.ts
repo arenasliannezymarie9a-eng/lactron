@@ -1,16 +1,17 @@
 // LACTRON API Configuration and Services
 //
 // Network Configuration:
-// - Frontend (Vite):  http://192.168.8.145:8080
-// - PHP Backend:      http://192.168.8.145:8080
-// - Flask ML Server:  http://192.168.8.145:5000
-// - ESP32 Gateway:    http://192.168.254.150 (static IP)
+// - Frontend (Vite):  http://localhost:8080 (proxies /api to WAMP)
+// - PHP Backend:      http://localhost:80/lactron/api (via WAMP)
+// - Flask ML Server:  http://localhost:5000
+// - ESP32 Gateway:    http://192.168.8.150 (static IP)
 //
-// The PHP backend runs on port 8080.
-// Start PHP with: php -S 192.168.8.145:8080 -t backend/php
+// WAMP serves PHP on port 80. Vite proxies /api/* to WAMP.
+// ESP32 sends data directly to: http://192.168.8.145/lactron/api/
 
-const DEFAULT_PHP_BASE_URL = "http://192.168.8.145:8080/api";
-const DEFAULT_FLASK_BASE_URL = "http://192.168.8.145:5000";
+// For browser requests (Vite proxy handles /api -> localhost:80/lactron/api)
+const DEFAULT_PHP_BASE_URL = "/api";
+const DEFAULT_FLASK_BASE_URL = "http://localhost:5000";
 const DEFAULT_ESP32_URL = "http://192.168.8.150";
 
 const API_CONFIG = {
@@ -23,7 +24,7 @@ const API_CONFIG = {
 } as const;
 
 const PHP_BACKEND_UNAVAILABLE_MESSAGE =
-  "Backend not available. Start PHP: php -S 192.168.8.145:8080 -t backend/php";
+  "Backend not available. Ensure WAMP is running (green icon in tray).";
 
 // Types
 export interface User {

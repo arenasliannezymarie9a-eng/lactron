@@ -1,28 +1,59 @@
-# LACTRON Development Startup Commands
+# LACTRON Development Startup Guide
+# ================================
+
+# Prerequisites:
+# - WAMP Server running (green icon in system tray)
+# - Symlink created: mklink /D "C:\wamp64\www\lactron" "C:\path\to\project\backend\php"
+
+# ================================
+# SIMPLIFIED WORKFLOW (Recommended)
+# ================================
+
+# Step 1: Ensure WAMP is running (green tray icon)
+# Step 2: Run frontend:
+npm run dev
+# Access at: http://localhost:8080
+
+# That's it! Vite proxies /api/* to WAMP automatically.
+
+# ================================
+# Optional: Flask ML Server (Port 5000)
+# ================================
+# Only needed for ML predictions. PHP has a fallback if Flask is down.
+cd backend/python && python app.py
+
+# ================================
+# Network Configuration
+# ================================
 # Your Machine IP: 192.168.8.145
 # ESP32 Static IP: 192.168.8.150
 
-# Terminal 1: Frontend (Vite) - Port 8080
-npm run dev
-# Access at: http://192.168.8.145:8080
+# Frontend:  http://localhost:8080 (Vite + proxy)
+# PHP API:   http://localhost/lactron/api/ (WAMP)
+# Flask ML:  http://localhost:5000 (optional)
 
-# Terminal 2: PHP Backend - Port 8080
-cd backend/php && php -S 192.168.8.145:8080
-# Or: php -S 0.0.0.0:8080
-# API at: http://192.168.8.145:8080/api/
+# ================================
+# ESP32 Configuration
+# ================================
+# Static IP: 192.168.8.150
+# Gateway: 192.168.8.1
+# Web Server Port: 80
+# PHP_SERVER_URL: http://192.168.8.145/lactron/api/sensor_data.php
+# BATCH_ENDPOINT: http://192.168.8.145/lactron/api/batches.php?action=esp_active
 
-# Terminal 3: Flask ML Server - Port 5000
-cd backend/python && python app.py
-# Or: python app.py --host 0.0.0.0
-
-# ESP32 Configuration:
-# - Static IP: 192.168.8.150
-# - Gateway: 192.168.254.1
-# - Web Server Port: 80
-# - PHP_SERVER_URL: http://192.168.8.145:8080/api/sensor_data.php
-# - BATCH_ENDPOINT: http://192.168.8.145:8080/api/batches.php?action=esp_active
-#
 # ESP32 HTTP Endpoints:
 # - POST /batch - Set active batch (JSON: {"batch_id": "..."})
 # - GET  /batch - Get current batch
 # - GET  /status - Get ESP32 status (IP, batch, sensors, uptime)
+
+# ================================
+# One-Time WAMP Setup
+# ================================
+# 1. Run as Administrator in PowerShell:
+#    mklink /D "C:\wamp64\www\lactron" "C:\full\path\to\project\backend\php"
+#
+# 2. Test in browser: http://localhost/lactron/api/hello.php
+#
+# 3. If ESP32 can't connect, ensure WAMP listens on all interfaces:
+#    - WAMP tray → Apache → httpd.conf
+#    - Change: Listen 80 → Listen 0.0.0.0:80
