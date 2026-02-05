@@ -10,7 +10,11 @@ This creates the `lactron` database with all required tables.
 
 ### 2. PHP Server
 ```bash
-cd php && php -S localhost:8080
+# Bind to network IP for ESP32 access
+cd php && php -S 192.168.254.100:8080
+
+# Or bind to all interfaces (0.0.0.0)
+cd php && php -S 0.0.0.0:8080
 ```
 
 ### 3. Flask ML Server

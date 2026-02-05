@@ -15,7 +15,7 @@ const API_CONFIG = {
 } as const;
 
 const PHP_BACKEND_UNAVAILABLE_MESSAGE =
-  "Backend not available. Start the PHP API (example): php -S localhost:8080 -t backend/php";
+  "Backend not available. Start the PHP API: php -S 192.168.254.100:8080 -t backend/php";
 
 // Types
 export interface User {
