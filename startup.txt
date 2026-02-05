@@ -1,0 +1,14 @@
+# Terminal 1: Frontend (Vite)
+npm run dev
+# Accessible at: http://192.168.254.100:8080
+
+# Terminal 2: PHP Backend
+cd backend/php && php -S 192.168.254.100:8080
+# Or: php -S 0.0.0.0:8080
+
+# Terminal 3: Flask ML Server
+cd backend/python && python app.py
+# Bind to: 0.0.0.0:5000
+
+# ESP32: Flash with updated IP
+# Points to: http://192.168.254.100:8080/api/*
