@@ -1,68 +1,146 @@
 
 
-# Fix Type Coercion Errors in Sensor Components
+# Network Configuration Update for ESP32 Communication
 
-## Problem Identified
+## Current State
 
-The errors occur because sensor values from the PHP backend are being returned as **strings** (common with MySQL/PHP JSON responses), but the frontend code assumes they are numbers. Calling `.toFixed()` on a string throws `TypeError: value.toFixed is not a function`.
+You're running the development server on the **Network URL** (`http://192.168.254.100:5173`) instead of localhost to enable communication with the ESP32. The current configuration has:
 
-### Error Locations:
-1. **SensorHistoryChart.tsx line 22**: `reading[sensorType]` returns a string from database
-2. **SensorHistoryChart.tsx line 62**: Tooltip formatter receives string value, calls `.toFixed(2)`
+- **Vite**: Port 5173, host `::` (binds to all interfaces - already correct)
+- **API Config**: Already points to `192.168.254.100:8080` for PHP and `192.168.254.100:5000` for Flask
+- **CORS**: Has `192.168.254.100:5173` and `192.168.254.100:8080` in allowlist
+- **ESP32**: Still has placeholder `YOUR_PC_IP`
 
----
+## Required Changes
 
-## Solution
-
-### Fix 1: SensorHistoryChart.tsx - Convert Values to Numbers
-
-**File:** `src/components/dashboard/SensorHistoryChart.tsx`
-
-Update the chart data mapping to convert values to numbers:
+### 1. Vite Configuration (`vite.config.ts`)
+**Change port from 5173 to 8080** as required by the Lovable platform.
 
 ```typescript
-// Line 20-23: Change from
-.map((reading) => ({
-  time: format(new Date(reading.created_at), "HH:mm:ss"),
-  value: reading[sensorType] ?? 0,
-}))
-
-// To
-.map((reading) => ({
-  time: format(new Date(reading.created_at), "HH:mm:ss"),
-  value: Number(reading[sensorType]) || 0,
-}))
+server: {
+  host: "::",
+  port: 8080,  // Required port for Lovable
+}
 ```
 
-Update the Tooltip formatter to handle potential non-number values:
+### 2. Update CORS Configuration (`backend/php/config/cors.php`)
+Add a regex pattern to allow any IP on the local network (192.168.x.x) for easier development across different machines.
 
+**Current:**
+```php
+$allowedOrigins = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:8080',
+    'http://192.168.254.100:5173',
+    'http://192.168.254.100:8080',
+];
+```
+
+**Updated:**
+```php
+$allowedOrigins = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:8080',
+    'http://192.168.254.100:5173',
+    'http://192.168.254.100:8080',
+];
+
+// Allow any 192.168.x.x IP address (local network)
+$isLocalNetworkOrigin = false;
+if (!empty($origin)) {
+    $isLocalNetworkOrigin = preg_match('#^https?://192\.168\.\d{1,3}\.\d{1,3}:\d+$#', $origin) === 1;
+}
+```
+
+### 3. Update API Configuration (`src/lib/api.ts`)
+Update the comments and ensure the default URLs reflect the current setup with port 8080 for the frontend.
+
+**Updated configuration:**
 ```typescript
-// Line 62: Change from
-formatter={(value: number) => [`${value.toFixed(2)} ppm`, label]}
+// Default to 8080 for PHP API, running on the local network IP
+const DEFAULT_PHP_BASE_URL = "http://192.168.254.100:8080/api";
 
-// To
-formatter={(value: number | string) => [`${Number(value).toFixed(2)} ppm`, label]}
+const API_CONFIG = {
+  PHP_BASE_URL:
+    import.meta.env.VITE_PHP_BASE_URL ||
+    import.meta.env.VITE_PHP_API_URL ||
+    DEFAULT_PHP_BASE_URL,
+  FLASK_BASE_URL: import.meta.env.VITE_FLASK_BASE_URL || "http://192.168.254.100:5000",
+} as const;
+
+const PHP_BACKEND_UNAVAILABLE_MESSAGE =
+  "Backend not available. Start the PHP API: php -S 192.168.254.100:8080 -t backend/php";
+```
+
+### 4. Update ESP32 Code (`backend/esp32/lactron_esp32.ino`)
+Replace the placeholder `YOUR_PC_IP` with a clearer example using your actual IP.
+
+**Updated:**
+```cpp
+// Backend Server Configuration
+// Your development machine IP: 192.168.254.100
+const char* PHP_SERVER_URL = "http://192.168.254.100:8080/api/sensor_data.php";
+const char* BATCH_ENDPOINT = "http://192.168.254.100:8080/api/batches.php?action=esp_active";
+```
+
+### 5. Update Backend README (`backend/README.md`)
+Update the PHP server startup command to bind to the network IP instead of localhost.
+
+**Updated:**
+```bash
+# PHP Server - bind to network IP for ESP32 access
+cd php && php -S 192.168.254.100:8080
+
+# Or bind to all interfaces (0.0.0.0)
+cd php && php -S 0.0.0.0:8080
 ```
 
 ---
 
 ## Files to Modify
 
-| File | Change |
-|------|--------|
-| `src/components/dashboard/SensorHistoryChart.tsx` | Add `Number()` conversion in data mapping (line 22) and formatter (line 62) |
+| File | Changes |
+|------|---------|
+| `vite.config.ts` | Change port from 5173 to 8080 |
+| `backend/php/config/cors.php` | Add regex for 192.168.x.x network origins |
+| `src/lib/api.ts` | Update help message to use network IP |
+| `backend/esp32/lactron_esp32.ino` | Set default IP to 192.168.254.100 |
+| `backend/README.md` | Update PHP startup command to use network IP |
 
 ---
 
-## Root Cause
+## Network Architecture After Changes
 
-PHP's `json_encode()` with MySQL results often returns numeric columns as strings. The frontend must defensively convert these values using `Number()` or `parseFloat()` before performing numeric operations.
+```text
++----------------+                     +------------------+                    +------------------+
+|    ESP32       |                     |  Dev Machine     |                    |   Browser        |
+| 192.168.x.x    |  HTTP POST          | 192.168.254.100  |   HTTP (CORS)      | 192.168.x.x      |
+|                | ------------------> |   PHP :8080      | <----------------- |   or localhost   |
+|                |                     |   Flask :5000    |                    |                  |
+|                |                     |   Vite :8080     |                    |                  |
++----------------+                     +------------------+                    +------------------+
+```
 
 ---
 
-## Expected Behavior After Fix
+## Startup Commands After Changes
 
-- Chart displays sensor history without errors
-- Tooltip shows properly formatted values like "45.23 ppm"
-- Both SensorCard and SensorHistoryChart handle string-typed values gracefully
+```bash
+# Terminal 1: Frontend (Vite)
+npm run dev
+# Accessible at: http://192.168.254.100:8080
+
+# Terminal 2: PHP Backend
+cd backend/php && php -S 192.168.254.100:8080
+# Or: php -S 0.0.0.0:8080
+
+# Terminal 3: Flask ML Server
+cd backend/python && python app.py
+# Bind to: 0.0.0.0:5000
+
+# ESP32: Flash with updated IP
+# Points to: http://192.168.254.100:8080/api/*
+```
 
