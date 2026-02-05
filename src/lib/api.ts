@@ -11,7 +11,7 @@
 
 const DEFAULT_PHP_BASE_URL = "http://192.168.8.145:8080/api";
 const DEFAULT_FLASK_BASE_URL = "http://192.168.8.145:5000";
-const DEFAULT_ESP32_URL = "http://192.168.254.150";
+const DEFAULT_ESP32_URL = "http://192.168.8.150";
 
 const API_CONFIG = {
   PHP_BASE_URL:
