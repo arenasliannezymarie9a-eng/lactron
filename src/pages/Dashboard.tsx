@@ -13,7 +13,7 @@ import ShelfLifeCard from "@/components/dashboard/ShelfLifeCard";
 import CreateBatchModal from "@/components/dashboard/CreateBatchModal";
 import BatchHistoryModal from "@/components/dashboard/BatchHistoryModal";
 import { Skeleton } from "@/components/ui/skeleton";
-import { authAPI, batchAPI, sensorAPI, historyAPI, Batch, SensorReading } from "@/lib/api";
+import { authAPI, batchAPI, sensorAPI, historyAPI, esp32API, Batch, SensorReading } from "@/lib/api";
 
 type MilkStatus = "good" | "spoiled";
 
@@ -149,12 +149,22 @@ const [sensorData, setSensorData] = useState<SensorData | null>(null);
     await loadBatches(selectNew);
   };
 
-  const handleSelectBatch = (batch: Batch) => {
+  const handleSelectBatch = async (batch: Batch) => {
     setCurrentBatch(batch);
+    
+    // Push batch to ESP32 (non-blocking, fails gracefully)
+    const response = await esp32API.setActiveBatch(batch.batch_id);
+    if (response.success) {
+      toast.success("ESP32 synced with selected batch");
+    }
+    // If ESP32 unreachable, it will still sync via polling
   };
 
-  const handleCloseBatch = () => {
+  const handleCloseBatch = async () => {
     setCurrentBatch(null);
+    
+    // Clear batch on ESP32
+    await esp32API.clearBatch();
   };
 
   // Show loading while checking auth
