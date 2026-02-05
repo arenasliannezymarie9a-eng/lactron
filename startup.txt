@@ -1,6 +1,6 @@
 # LACTRON Development Startup Commands
 # Your Machine IP: 192.168.8.145
-# ESP32 Static IP: 192.168.254.150
+# ESP32 Static IP: 192.168.8.150
 
 # Terminal 1: Frontend (Vite) - Port 8080
 npm run dev
@@ -16,7 +16,7 @@ cd backend/python && python app.py
 # Or: python app.py --host 0.0.0.0
 
 # ESP32 Configuration:
-# - Static IP: 192.168.254.150
+# - Static IP: 192.168.8.150
 # - Gateway: 192.168.254.1
 # - Web Server Port: 80
 # - PHP_SERVER_URL: http://192.168.8.145:8080/api/sensor_data.php
