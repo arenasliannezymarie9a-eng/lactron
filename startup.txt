@@ -1,14 +1,19 @@
-# Terminal 1: Frontend (Vite)
-npm run dev
-# Accessible at: http://192.168.254.100:8080
+# LACTRON Development Startup Commands
+# Your Machine IP: 192.168.254.100
 
-# Terminal 2: PHP Backend
+# Terminal 1: Frontend (Vite) - Port 5173
+npm run dev
+# Access at: http://192.168.254.100:5173
+
+# Terminal 2: PHP Backend - Port 8080
 cd backend/php && php -S 192.168.254.100:8080
 # Or: php -S 0.0.0.0:8080
+# API at: http://192.168.254.100:8080/api/
 
-# Terminal 3: Flask ML Server
+# Terminal 3: Flask ML Server - Port 5000
 cd backend/python && python app.py
-# Bind to: 0.0.0.0:5000
+# Or: python app.py --host 0.0.0.0
 
-# ESP32: Flash with updated IP
-# Points to: http://192.168.254.100:8080/api/*
+# ESP32 Configuration:
+# - PHP_SERVER_URL: http://192.168.254.100:8080/api/sensor_data.php
+# - BATCH_ENDPOINT: http://192.168.254.100:8080/api/batches.php?action=esp_active

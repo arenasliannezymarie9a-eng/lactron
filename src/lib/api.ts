@@ -1,21 +1,26 @@
 // LACTRON API Configuration and Services
+//
+// Network Configuration:
+// - Frontend (Vite):  http://192.168.254.100:5173
+// - PHP Backend:      http://192.168.254.100:8080
+// - Flask ML Server:  http://192.168.254.100:5000
+//
+// The PHP backend runs on port 8080, NOT the same port as Vite.
+// Start PHP with: php -S 192.168.254.100:8080 -t backend/php
 
-// NOTE:
-// - Port 8080 is often already used locally (and Vite may auto-switch ports).
-// - Default to 8080 for the PHP API, but allow overriding via Vite env vars.
-//   Example: VITE_PHP_BASE_URL=http://localhost:9000/api
 const DEFAULT_PHP_BASE_URL = "http://192.168.254.100:8080/api";
+const DEFAULT_FLASK_BASE_URL = "http://192.168.254.100:5000";
 
 const API_CONFIG = {
   PHP_BASE_URL:
     import.meta.env.VITE_PHP_BASE_URL ||
     import.meta.env.VITE_PHP_API_URL ||
     DEFAULT_PHP_BASE_URL,
-  FLASK_BASE_URL: import.meta.env.VITE_FLASK_BASE_URL || "http://192.168.254.100:5000",
+  FLASK_BASE_URL: import.meta.env.VITE_FLASK_BASE_URL || DEFAULT_FLASK_BASE_URL,
 } as const;
 
 const PHP_BACKEND_UNAVAILABLE_MESSAGE =
-  "Backend not available. Start the PHP API: php -S 192.168.254.100:8080 -t backend/php";
+  "Backend not available. Start PHP: php -S 192.168.254.100:8080 -t backend/php";
 
 // Types
 export interface User {
