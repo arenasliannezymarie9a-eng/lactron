@@ -31,9 +31,9 @@ IPAddress gateway(192, 168, 8, 1);
 IPAddress subnet(255, 255, 255, 0);
 IPAddress dns(8, 8, 8, 8);
 
-// Backend Server Configuration
-const char* PHP_SERVER_URL = "http://192.168.8.145:8080/api/sensor_data.php";
-const char* BATCH_ENDPOINT = "http://192.168.8.145:8080/api/batches.php?action=esp_active";
+// Backend Server Configuration (WAMP on port 80)
+const char* PHP_SERVER_URL = "http://192.168.8.145/lactron/api/sensor_data.php";
+const char* BATCH_ENDPOINT = "http://192.168.8.145/lactron/api/batches.php?action=esp_active";
 
 // Send interval in milliseconds (throttle backend calls)
 const unsigned long SEND_INTERVAL = 5000;  // 5 seconds
