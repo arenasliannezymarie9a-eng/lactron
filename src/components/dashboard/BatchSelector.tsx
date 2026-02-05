@@ -107,17 +107,6 @@ const BatchSelector = ({
         {/* Quick Actions */}
         <div className="flex items-center gap-2 print:hidden">
           <Button
-            variant="ghost"
-            size="sm"
-            onClick={onCloseBatch}
-            className="h-9 rounded-xl gap-2"
-            title="Close batch and return to welcome screen"
-          >
-            <X className="w-4 h-4" />
-            <span className="hidden sm:inline">Close</span>
-          </Button>
-
-          <Button
             variant="outline"
             size="sm"
             onClick={onCreateNew}
@@ -150,6 +139,17 @@ const BatchSelector = ({
           >
             <History className="w-4 h-4" />
             <span className="hidden sm:inline">History</span>
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onCloseBatch}
+            className="h-9 rounded-xl gap-2"
+            title="Close batch and return to welcome screen"
+          >
+            <X className="w-4 h-4" />
+            <span className="hidden sm:inline">Close</span>
           </Button>
         </div>
       </div>
