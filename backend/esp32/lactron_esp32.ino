@@ -22,18 +22,18 @@
 // ============================================
 
 // WiFi Configuration
-const char* WIFI_SSID = "YOUR_WIFI_SSID";
-const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+const char* WIFI_SSID = "DITO_9010F";
+const char* WIFI_PASSWORD = "6687305D";
 
 // Static IP Configuration
-IPAddress staticIP(192, 168, 254, 150);
-IPAddress gateway(192, 168, 254, 1);
+IPAddress staticIP(192, 168, 8, 150);
+IPAddress gateway(192, 168, 8, 1);
 IPAddress subnet(255, 255, 255, 0);
 IPAddress dns(8, 8, 8, 8);
 
 // Backend Server Configuration
-const char* PHP_SERVER_URL = "http://192.168.254.100:8080/api/sensor_data.php";
-const char* BATCH_ENDPOINT = "http://192.168.254.100:8080/api/batches.php?action=esp_active";
+const char* PHP_SERVER_URL = "http://192.168.8.145:8080/api/sensor_data.php";
+const char* BATCH_ENDPOINT = "http://192.168.8.145:8080/api/batches.php?action=esp_active";
 
 // Send interval in milliseconds (throttle backend calls)
 const unsigned long SEND_INTERVAL = 5000;  // 5 seconds

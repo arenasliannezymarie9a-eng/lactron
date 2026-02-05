@@ -1,16 +1,16 @@
 // LACTRON API Configuration and Services
 //
 // Network Configuration:
-// - Frontend (Vite):  http://192.168.254.100:8080
-// - PHP Backend:      http://192.168.254.100:8080
-// - Flask ML Server:  http://192.168.254.100:5000
+// - Frontend (Vite):  http://192.168.8.145:8080
+// - PHP Backend:      http://192.168.8.145:8080
+// - Flask ML Server:  http://192.168.8.145:5000
 // - ESP32 Gateway:    http://192.168.254.150 (static IP)
 //
 // The PHP backend runs on port 8080.
-// Start PHP with: php -S 192.168.254.100:8080 -t backend/php
+// Start PHP with: php -S 192.168.8.145:8080 -t backend/php
 
-const DEFAULT_PHP_BASE_URL = "http://192.168.254.100:8080/api";
-const DEFAULT_FLASK_BASE_URL = "http://192.168.254.100:5000";
+const DEFAULT_PHP_BASE_URL = "http://192.168.8.145:8080/api";
+const DEFAULT_FLASK_BASE_URL = "http://192.168.8.145:5000";
 const DEFAULT_ESP32_URL = "http://192.168.254.150";
 
 const API_CONFIG = {
@@ -23,7 +23,7 @@ const API_CONFIG = {
 } as const;
 
 const PHP_BACKEND_UNAVAILABLE_MESSAGE =
-  "Backend not available. Start PHP: php -S 192.168.254.100:8080 -t backend/php";
+  "Backend not available. Start PHP: php -S 192.168.8.145:8080 -t backend/php";
 
 // Types
 export interface User {

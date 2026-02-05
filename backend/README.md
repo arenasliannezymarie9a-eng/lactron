@@ -2,13 +2,13 @@
 
 ## Network Configuration
 
-All services bind to your machine's network IP (e.g., `192.168.254.100`) to enable ESP32 communication.
+All services bind to your machine's network IP (e.g., `192.168.8.145`) to enable ESP32 communication.
 
 | Service | Port | URL |
 |---------|------|-----|
-| Frontend (Vite) | 8080 | http://192.168.254.100:8080 |
-| PHP Backend | 8080 | http://192.168.254.100:8080 |
-| Flask ML Server | 5000 | http://192.168.254.100:5000 |
+| Frontend (Vite) | 8080 | http://192.168.8.145:8080 |
+| PHP Backend | 8080 | http://192.168.8.145:8080 |
+| Flask ML Server | 5000 | http://192.168.8.145:5000 |
 | ESP32 Gateway | 80 | http://192.168.254.150 |
 
 ## Quick Start
@@ -22,7 +22,7 @@ This creates the `lactron` database with all required tables.
 ### 2. PHP Server (Port 8080)
 ```bash
 # Bind to network IP for ESP32 access
-cd php && php -S 192.168.254.100:8080
+cd php && php -S 192.168.8.145:8080
 
 # Or bind to all interfaces (0.0.0.0)
 cd php && php -S 0.0.0.0:8080
@@ -40,7 +40,7 @@ python app.py --host 0.0.0.0
 ```bash
 # From project root
 npm run dev
-# Access at: http://192.168.254.100:8080
+# Access at: http://192.168.8.145:8080
 ```
 
 ### 5. ESP32

@@ -10,8 +10,8 @@ $allowedOrigins = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
     'http://localhost:8080',
-    'http://192.168.254.100:5173',
-    'http://192.168.254.100:8080',
+    'http://192.168.8.145:5173',
+    'http://192.168.8.145:8080',
 ];
 
 // Allow any localhost/127.0.0.1 port for development (Vite may auto-pick 8081/8082/etc.)
