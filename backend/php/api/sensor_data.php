@@ -28,19 +28,35 @@ if ($method === 'GET') {
         echo json_encode(['success' => true, 'data' => $stmt->fetchAll()]);
     }
 } else if ($method === 'POST') {
-    $input = json_decode(file_get_contents('php://input'), true);
-    $batchId = $input['batch_id'] ?? 'DEFAULT';
-    $ethanol = floatval($input['ethanol'] ?? 0);
-    $ammonia = floatval($input['ammonia'] ?? 0);
-    $h2s = floatval($input['h2s'] ?? 0);
-    
-    // Call Flask ML server for prediction
-    $prediction = callMlServer($ethanol, $ammonia, $h2s);
-    
-    $stmt = $pdo->prepare('INSERT INTO sensor_readings (batch_id, ethanol, ammonia, h2s, status, predicted_shelf_life) VALUES (?, ?, ?, ?, ?, ?)');
-    $stmt->execute([$batchId, $ethanol, $ammonia, $h2s, $prediction['status'], $prediction['shelfLife']]);
-    
-    echo json_encode(['success' => true, 'data' => $prediction]);
+    try {
+        $rawInput = file_get_contents('php://input');
+        $input = json_decode($rawInput, true);
+        
+        if (!$input) {
+            echo json_encode(['success' => false, 'error' => 'Invalid JSON input', 'raw' => $rawInput]);
+            exit;
+        }
+        
+        $batchId = $input['batch_id'] ?? 'DEFAULT';
+        $ethanol = floatval($input['ethanol'] ?? 0);
+        $ammonia = floatval($input['ammonia'] ?? 0);
+        $h2s = floatval($input['h2s'] ?? 0);
+        
+        // Call Flask ML server for prediction
+        $prediction = callMlServer($ethanol, $ammonia, $h2s);
+        
+        $stmt = $pdo->prepare('INSERT INTO sensor_readings (batch_id, ethanol, ammonia, h2s, status, predicted_shelf_life) VALUES (?, ?, ?, ?, ?, ?)');
+        $result = $stmt->execute([$batchId, $ethanol, $ammonia, $h2s, $prediction['status'], $prediction['shelfLife']]);
+        
+        if ($result) {
+            $insertId = $pdo->lastInsertId();
+            echo json_encode(['success' => true, 'data' => $prediction, 'insert_id' => $insertId]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'Insert failed', 'errorInfo' => $stmt->errorInfo()]);
+        }
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
 }
 
 function callMlServer($ethanol, $ammonia, $h2s) {
