@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => ({
         target: 'http://localhost:80',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/api/, '/lactron/api'),
+        rewrite: (path) => path.replace(/^\/api/, '/lactron/backend/php/api'),
       }
     }
   },
