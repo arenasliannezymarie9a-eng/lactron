@@ -1,29 +1,34 @@
 <?php
 // CORS configuration for local development.
-// Allows the React dev server (localhost:5173) AND the Lovable preview/published origins
-// to call the local PHP API at http://localhost:8080.
+// Allows the Vite dev server (localhost:8080) AND the Lovable preview/published origins
+// to call the local PHP API served by WAMP at http://localhost:80.
 
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 
 // Explicit allowlist (exact matches)
 $allowedOrigins = [
+    'http://localhost',           // WAMP default (port 80 implicit)
     'http://localhost:80',
+    'http://127.0.0.1',
     'http://127.0.0.1:80',
-    'http://localhost:8080',
-    'http://192.168.8.145',
+    'http://localhost:8080',      // Vite dev server
+    'http://127.0.0.1:8080',
+    'http://192.168.8.145',       // PC's local network IP (no port = 80)
+    'http://192.168.8.145:80',
     'http://192.168.8.145:8080',
 ];
 
 // Allow any localhost/127.0.0.1 port for development (Vite may auto-pick 8081/8082/etc.)
 $isLocalDevOrigin = false;
 if (!empty($origin)) {
-    $isLocalDevOrigin = preg_match('#^https?://(localhost|127\\.0\\.0\\.1):\\d+$#i', $origin) === 1;
+    $isLocalDevOrigin = preg_match('#^https?://(localhost|127\\.0\\.0\\.1)(:\\d+)?$#i', $origin) === 1;
 }
 
 // Allow any 192.168.x.x IP address (local network) for ESP32 communication
+// Matches with or without port (port 80 is often omitted)
 $isLocalNetworkOrigin = false;
 if (!empty($origin)) {
-    $isLocalNetworkOrigin = preg_match('#^https?://192\.168\.\d{1,3}\.\d{1,3}:\d+$#', $origin) === 1;
+    $isLocalNetworkOrigin = preg_match('#^https?://192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$#', $origin) === 1;
 }
 
 // Allow Lovable preview/published domains.
