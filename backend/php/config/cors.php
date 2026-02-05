@@ -20,6 +20,12 @@ if (!empty($origin)) {
     $isLocalDevOrigin = preg_match('#^https?://(localhost|127\\.0\\.0\\.1):\\d+$#i', $origin) === 1;
 }
 
+// Allow any 192.168.x.x IP address (local network) for ESP32 communication
+$isLocalNetworkOrigin = false;
+if (!empty($origin)) {
+    $isLocalNetworkOrigin = preg_match('#^https?://192\.168\.\d{1,3}\.\d{1,3}:\d+$#', $origin) === 1;
+}
+
 // Allow Lovable preview/published domains.
 // Example: https://id-preview--<uuid>.lovable.app
 // Example: https://<project>.lovable.app
@@ -30,7 +36,7 @@ if (!empty($origin)) {
         || preg_match('#^https://[a-z0-9-]+\.lovableproject\.com$#i', $origin) === 1;
 }
 
-if (in_array($origin, $allowedOrigins, true) || $isLovableOrigin || $isLocalDevOrigin) {
+if (in_array($origin, $allowedOrigins, true) || $isLovableOrigin || $isLocalDevOrigin || $isLocalNetworkOrigin) {
     header('Access-Control-Allow-Origin: ' . $origin);
     header('Vary: Origin');
 }

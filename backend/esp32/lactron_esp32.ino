@@ -23,9 +23,10 @@ const char* WIFI_SSID = "YOUR_WIFI_SSID";
 const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 
 // Backend Server Configuration
-// Replace YOUR_PC_IP with your computer's local IP address (e.g., 192.168.1.100)
-const char* PHP_SERVER_URL = "http://YOUR_PC_IP:8080/api/sensor_data.php";
-const char* BATCH_ENDPOINT = "http://YOUR_PC_IP:8080/api/batches.php?action=esp_active";
+// Your development machine IP: 192.168.254.100
+// Update this to match your computer's local IP address
+const char* PHP_SERVER_URL = "http://192.168.254.100:8080/api/sensor_data.php";
+const char* BATCH_ENDPOINT = "http://192.168.254.100:8080/api/batches.php?action=esp_active";
 
 // Send interval in milliseconds (throttle backend calls)
 const unsigned long SEND_INTERVAL = 5000;  // 5 seconds
