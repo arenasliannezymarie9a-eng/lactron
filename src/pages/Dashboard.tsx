@@ -37,6 +37,7 @@ const [sensorData, setSensorData] = useState<SensorData | null>(null);
   const [isSavingBatch, setIsSavingBatch] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const [isSimulating, setIsSimulating] = useState(false);
 
   useEffect(() => {
     if (isDark) {
@@ -99,22 +100,30 @@ const [sensorData, setSensorData] = useState<SensorData | null>(null);
   }, [navigate, loadBatches]);
 
   useEffect(() => {
-    if (currentBatch) {
+    if (currentBatch && !isSimulating) {
       loadSensorHistory();
       const interval = setInterval(loadSensorHistory, 5000);
       return () => clearInterval(interval);
     }
-  }, [currentBatch, loadSensorHistory]);
+  }, [currentBatch, loadSensorHistory, isSimulating]);
 
   const simulateEvent = () => {
-    if (status === "good") {
-      setStatus("spoiled");
-      setSensorData({ ethanol: 85, ammonia: 70, h2s: 95 });
-      setShelfLife(0.2);
+    if (isSimulating) {
+      // Exit simulation - reload real data
+      setIsSimulating(false);
+      loadSensorHistory();
     } else {
-      setStatus("good");
-      setSensorData({ ethanol: 15, ammonia: 10, h2s: 5 });
-      setShelfLife(4.8);
+      // Enter simulation mode
+      setIsSimulating(true);
+      if (status === "good") {
+        setStatus("spoiled");
+        setSensorData({ ethanol: 85, ammonia: 70, h2s: 95 });
+        setShelfLife(0.2);
+      } else {
+        setStatus("good");
+        setSensorData({ ethanol: 15, ammonia: 10, h2s: 5 });
+        setShelfLife(4.8);
+      }
     }
   };
 
@@ -256,6 +265,7 @@ const [sensorData, setSensorData] = useState<SensorData | null>(null);
                       status={status}
                       batch={currentBatch}
                       onSimulate={simulateEvent}
+                      isSimulating={isSimulating}
                     />
                   </div>
                 </div>

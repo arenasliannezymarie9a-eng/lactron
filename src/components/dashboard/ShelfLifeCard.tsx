@@ -9,9 +9,10 @@ interface ShelfLifeCardProps {
   status: "good" | "spoiled";
   batch: Batch | null;
   onSimulate: () => void;
+  isSimulating?: boolean;
 }
 
-const ShelfLifeCard = ({ days, status, batch, onSimulate }: ShelfLifeCardProps) => {
+const ShelfLifeCard = ({ days, status, batch, onSimulate, isSimulating = false }: ShelfLifeCardProps) => {
   // Ensure days is a valid number, default to 0 if not
   const safeDays = typeof days === 'number' && !isNaN(days) ? days : 0;
   const isGood = status === "good";
@@ -45,6 +46,23 @@ const ShelfLifeCard = ({ days, status, batch, onSimulate }: ShelfLifeCardProps) 
       transition={{ duration: 0.5, delay: 0.2 }}
       className="glass-card rounded-3xl p-6 flex flex-col h-full"
     >
+      {/* Simulation Mode Banner */}
+      {isSimulating && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-center"
+        >
+          <p className="text-amber-500 font-semibold text-sm flex items-center justify-center gap-2">
+            <Activity className="w-4 h-4 animate-pulse" />
+            SIMULATION MODE
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Auto-refresh paused. Click below to resume real-time data.
+          </p>
+        </motion.div>
+      )}
+
       {/* Batch Info for PDF */}
       {batch && (
         <div className="hidden print:block mb-4 p-4 border border-border rounded-xl">
@@ -115,12 +133,14 @@ const ShelfLifeCard = ({ days, status, batch, onSimulate }: ShelfLifeCardProps) 
       {/* Action Buttons */}
       <div className="flex gap-3 mt-4 print:hidden">
         <Button
-          variant="outline"
+          variant={isSimulating ? "default" : "outline"}
           onClick={onSimulate}
-          className="flex-1 rounded-xl h-11 hover:scale-[1.02] transition-transform"
+          className={`flex-1 rounded-xl h-11 hover:scale-[1.02] transition-transform ${
+            isSimulating ? "bg-amber-500 hover:bg-amber-600 text-white" : ""
+          }`}
         >
           <Activity className="w-4 h-4 mr-2" />
-          Simulate Event
+          {isSimulating ? "Exit Simulation" : "Simulate Event"}
         </Button>
         <Button
           className="flex-1 rounded-xl h-11 hover:scale-[1.02] transition-transform"
