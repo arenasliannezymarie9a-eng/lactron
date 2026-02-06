@@ -58,7 +58,7 @@ const ShelfLifeCard = ({ days, status, batch, onSimulate, isSimulating = false }
             SIMULATION MODE
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            Auto-refresh paused. Click below to resume real-time data.
+            Click below to resume real-time data.
           </p>
         </motion.div>
       )}
