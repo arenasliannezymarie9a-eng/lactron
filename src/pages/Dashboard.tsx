@@ -112,19 +112,31 @@ const [sensorData, setSensorData] = useState<SensorData | null>(null);
       // Exit simulation - reload real data
       setIsSimulating(false);
       loadSensorHistory();
+  } else {
+    // Enter simulation mode with realistic values based on ML model thresholds
+    setIsSimulating(true);
+    if (status === "good") {
+      // Simulate SPOILED milk - values above spoilage thresholds
+      // Model thresholds: Ethanol >80, Ammonia >40, H2S >15
+      setStatus("spoiled");
+      setSensorData({ 
+        ethanol: 95,   // Above 80 ppm threshold
+        ammonia: 52,   // Above 40 ppm threshold  
+        h2s: 22        // Above 15 ppm threshold (within 30 max)
+      });
+      setShelfLife(0);
     } else {
-      // Enter simulation mode
-      setIsSimulating(true);
-      if (status === "good") {
-        setStatus("spoiled");
-        setSensorData({ ethanol: 85, ammonia: 70, h2s: 95 });
-        setShelfLife(0.2);
-      } else {
-        setStatus("good");
-        setSensorData({ ethanol: 15, ammonia: 10, h2s: 5 });
-        setShelfLife(4.8);
-      }
+      // Simulate FRESH milk - values in fresh range
+      // Fresh ranges: Ethanol <20, Ammonia <10, H2S <2
+      setStatus("good");
+      setSensorData({ 
+        ethanol: 12,   // Well below 20 ppm fresh_max
+        ammonia: 5,    // Well below 10 ppm fresh_max
+        h2s: 0.8       // Well below 2 ppm fresh_max
+      });
+      setShelfLife(6.5);
     }
+  }
   };
 
   const handleSaveBatch = async () => {
