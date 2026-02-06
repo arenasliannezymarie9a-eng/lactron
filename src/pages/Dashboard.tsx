@@ -66,13 +66,14 @@ const [sensorData, setSensorData] = useState<SensorData | null>(null);
       setSensorHistory(response.data);
       if (response.data.length > 0) {
         const latest = response.data[0];
+        // Explicitly parse numbers from PHP string responses
         setSensorData({
-          ethanol: latest.ethanol,
-          ammonia: latest.ammonia,
-          h2s: latest.h2s,
+          ethanol: Number(latest.ethanol) || 0,
+          ammonia: Number(latest.ammonia) || 0,
+          h2s: Number(latest.h2s) || 0,
         });
-        setStatus(latest.status);
-        setShelfLife(latest.predicted_shelf_life);
+        setStatus(latest.status as MilkStatus);
+        setShelfLife(Number(latest.predicted_shelf_life) || 0);
       } else {
         // No readings yet for this batch
         setSensorData(null);
