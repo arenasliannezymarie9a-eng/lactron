@@ -59,7 +59,7 @@ const SensorHistoryChart = ({ data, sensorType, color, label }: SensorHistoryCha
               fontSize: "12px",
             }}
             labelStyle={{ color: "hsl(var(--foreground))" }}
-            formatter={(value: number | string) => [`${Number(value).toFixed(2)} ppm`, label]}
+            formatter={(value: number | string) => [`${Number(value).toFixed(1)} ppm`, label]}
           />
           <Line
             type="monotone"
