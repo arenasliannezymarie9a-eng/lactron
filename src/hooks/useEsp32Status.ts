@@ -14,13 +14,15 @@ const useEsp32Status = (): Esp32Status => {
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const pollStatus = useCallback(async () => {
-    const res = await esp32API.getStatus();
-    if (res.success && res.data) {
+    const res = await esp32API.getStatus() as any;
+    if (res.success) {
       setIsOnline(true);
       
-      if (res.data.warming_up) {
+      // ESP32 returns fields at top level, not nested under 'data'
+      const data = res.data || res;
+      if (data.warming_up) {
         setIsWarmingUp(true);
-        const remainingSecs = Math.ceil((res.data.warmup_remaining_ms || 0) / 1000);
+        const remainingSecs = Math.ceil((data.warmup_remaining_ms || 0) / 1000);
         setWarmUpRemaining(remainingSecs);
       } else {
         setIsWarmingUp(false);
