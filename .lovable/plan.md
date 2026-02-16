@@ -1,118 +1,79 @@
 
 
-# Refactor Dashboard: Filter Dataset Batches, Fixed 30-Reading Progress, and Professional PDF Reports
+# Fix Sensor Reading Retrieval: Only New Readings Per Batch
 
-## Overview
+## Problem
 
-Three major changes to the dashboard batch monitoring workflow:
+When a batch is selected, the dashboard fetches ALL sensor readings ever recorded for that `batch_id` from the database. This means:
+- If a batch was previously used and already has old readings, those stale readings count toward the 30-reading limit
+- New sensor data from the ESP32 gets mixed with historical data
+- The progress bar may show incorrect progress (e.g., already "complete" from old data)
 
-1. **Hide dataset batches** from the batch selector and welcome state -- only show regular monitoring batches (filter out `DATASET-*` prefixed batches).
-2. **Fixed 30-reading limit per batch** -- replace the continuous 5-second polling with a progress-based approach. When a batch is selected, it collects up to 30 sensor readings. A progress bar shows how many readings have been received. Once all 30 are collected, polling stops and a report is auto-generated.
-3. **Professional printable PDF report** -- instead of using `window.print()` to print the raw UI, generate a clean, structured HTML report document in a new window with proper headers, logo, timestamps, tables, and print-optimized CSS.
-
----
-
-## 1. Filter Out Dataset Batches
-
-### Backend: `backend/php/api/batches.php`
-
-In the `list` action query, add a `WHERE` clause to exclude batches whose `batch_id` starts with `DATASET-`:
-
-```sql
-WHERE b.user_id = ? AND b.batch_id NOT LIKE 'DATASET-%'
-```
-
-This ensures the `batchAPI.getAll()` response never includes dataset gathering batches.
-
-### Frontend
-
-No frontend filtering needed -- the backend handles it. The `WelcomeState` and `BatchSelector` components will automatically only show regular batches.
+The system should only track the 30 **new** readings that the ESP32 sends after the batch is created or activated.
 
 ---
 
-## 2. Fixed 30-Reading Progress System
+## Solution
 
-### How It Works
+### 1. Backend: Cap at 30 Readings Per Batch
+
+**File: `backend/php/api/sensor_data.php`** (POST handler)
+
+Before inserting a new reading for a normal (non-dataset) batch, check the current count. If the batch already has 30 readings, reject the insert with an error response. This prevents the ESP32 from adding more than 30 readings to any batch.
 
 ```text
-1. User selects a batch
-2. Dashboard fetches sensor history (up to 30 readings)
-3. Progress bar shows: "X / 30 readings collected"
-4. If < 30 readings, poll every 5 seconds for new readings
-5. Once 30 readings are reached, stop polling
-6. Show "Analysis Complete" state with a "Generate Report" button
-7. The final grade and shelf life are derived from the last (30th) reading
+Before INSERT:
+  SELECT COUNT(*) FROM sensor_readings WHERE batch_id = ?
+  If count >= 30, return { success: false, error: "Batch reading limit reached (30/30)" }
 ```
 
-### Frontend Changes
+### 2. Backend: Filter History by Batch Creation Time
 
-#### `src/pages/Dashboard.tsx`
+**File: `backend/php/api/sensor_data.php`** (GET history action)
 
-- Change `loadSensorHistory` to fetch exactly 30 readings: `sensorAPI.getHistory(batch_id, 30)`
-- Track reading count: `const readingCount = sensorHistory.length`
-- Define `const MAX_READINGS = 30`
-- Derive `isComplete = readingCount >= MAX_READINGS`
-- **Stop polling when complete**: modify the polling `useEffect` to only set up the interval when `!isComplete`
-- Pass `readingCount`, `MAX_READINGS`, and `isComplete` to child components
-- Remove the `handleSaveBatch` manual save -- replace it with auto-save when 30 readings are reached
-- When `isComplete` transitions to `true`, automatically call `historyAPI.save()` to archive the batch
+Update the history query to only return readings that were created on or after the batch's own `created_at` timestamp. This ensures old orphaned readings (if any exist) are excluded.
 
-#### `src/components/dashboard/BatchSelector.tsx`
+```sql
+-- Before
+SELECT ... FROM sensor_readings WHERE batch_id = ? ORDER BY created_at DESC LIMIT ?
 
-- Replace the "Save" button with a progress indicator
-- Show a progress bar: `readingCount / maxReadings` (e.g., "12 / 30 readings")
-- When complete, show a green checkmark badge instead of the progress bar
-- Keep "New", "History", and "Close" buttons
-- Add a "Report" button (only visible when `isComplete`) that triggers PDF generation
+-- After
+SELECT sr.* FROM sensor_readings sr
+  INNER JOIN batches b ON sr.batch_id = b.batch_id
+  WHERE sr.batch_id = ? AND sr.created_at >= b.created_at
+  ORDER BY sr.created_at DESC LIMIT ?
+```
 
-#### `src/components/dashboard/StatusHero.tsx`
+### 3. Backend: Include Reading Count in Batch List
 
-- No structural changes needed -- it already handles `hasData` properly
-- The grade will still show `--` until the first reading arrives, then update with each reading
+**File: `backend/php/api/batches.php`** (list action)
 
-#### `src/components/dashboard/MolecularFingerprint.tsx`
+The batch list query already includes a `reading_count` subquery. Update it to also filter by `created_at >= batch.created_at` so the count is accurate:
 
-- Add a small reading counter badge: "Reading 12/30" in the header area
-- The chart will show up to 30 data points
+```sql
+(SELECT COUNT(*) FROM sensor_readings sr 
+ WHERE sr.batch_id = b.batch_id AND sr.created_at >= b.created_at) as reading_count
+```
 
-#### `src/components/dashboard/ShelfLifeCard.tsx`
+### 4. Frontend: Reset State on Batch Selection
 
-- When `isComplete`, change the tips section to show "Analysis Complete" with a summary
-- Replace "Simulate Event" button with "Generate Report" button when complete
-- Keep simulation available only while readings are still in progress
+**File: `src/pages/Dashboard.tsx`**
 
----
+When selecting a new batch (`handleSelectBatch`), explicitly reset `sensorData`, `sensorHistory`, `status`, and `shelfLife` to their initial empty states before the first poll fetches fresh data. This prevents stale data from a previous batch from flashing in the UI.
 
-## 3. Professional PDF Report Generation
+```text
+handleSelectBatch:
+  setSensorData(null)
+  setSensorHistory([])
+  setStatus("good")
+  setShelfLife(0)
+  setCurrentBatch(batch)
+  // Then the polling useEffect kicks in and fetches fresh data
+```
 
-### New File: `src/lib/generateReport.ts`
+### 5. Frontend: Show Proper Progress
 
-A utility function that generates a professional HTML document in a new browser window optimized for printing to PDF.
-
-The report includes:
-- **Header**: LACTRON logo (embedded as base64), title "Milk Quality Analysis Report", report generation timestamp
-- **Batch Information Table**: Batch ID, Collector Name, Time of Collection, Total Readings, Analysis Duration
-- **Sensor Readings Summary Table**: Average, Min, Max for each sensor (Ethanol, Ammonia, H2S) calculated from all 30 readings
-- **Final Classification**: Grade (GOOD/SPOILED) with color coding
-- **Estimated Shelf Life**: The final predicted value
-- **Individual Readings Table**: All 30 readings with timestamp, ethanol, ammonia, H2S, status, and predicted shelf life
-- **Footer**: "Generated by LACTRON - Solar-Powered IoT Smart System for Milk Quality Monitoring", page numbers via CSS `@page`
-
-### Report Styling
-
-The report uses inline CSS and `@media print` rules for clean PDF output:
-- A4 page size with proper margins
-- Professional fonts (system sans-serif stack)
-- Clean table borders, alternating row colors
-- Color-coded grade badge (green for GOOD, red for SPOILED)
-- No interactive elements or backgrounds -- pure print-ready layout
-- Auto-triggers `window.print()` after rendering
-
-### Integration Points
-
-- **ShelfLifeCard**: "Generate Report" button calls `generateReport(batch, sensorHistory, status, shelfLife)`
-- **BatchSelector**: "Report" button (when complete) calls the same function
-- **BatchHistoryModal**: Replace `window.print()` with a similar professional report for saved history items
+No changes needed to `BatchSelector.tsx` or `MolecularFingerprint.tsx` -- they already use `readingCount` and `maxReadings` from Dashboard. Once the backend returns only valid readings, the progress bar will be accurate.
 
 ---
 
@@ -120,61 +81,30 @@ The report uses inline CSS and `@media print` rules for clean PDF output:
 
 | File | Action | Description |
 |------|--------|-------------|
-| `backend/php/api/batches.php` | Modify | Add `NOT LIKE 'DATASET-%'` filter to list query |
-| `src/pages/Dashboard.tsx` | Modify | 30-reading limit, stop polling when complete, auto-save |
-| `src/components/dashboard/BatchSelector.tsx` | Modify | Replace Save button with progress bar, add Report button |
-| `src/components/dashboard/ShelfLifeCard.tsx` | Modify | Show completion state, replace simulate with Report button |
-| `src/components/dashboard/MolecularFingerprint.tsx` | Modify | Add reading counter badge |
-| `src/lib/generateReport.ts` | Create | Professional HTML report generator |
-| `src/components/dashboard/BatchHistoryModal.tsx` | Modify | Use professional report instead of `window.print()` |
+| `backend/php/api/sensor_data.php` | Modify | Add 30-reading cap on INSERT, filter history by batch creation time |
+| `backend/php/api/batches.php` | Modify | Update reading_count subquery to filter by batch creation time |
+| `src/pages/Dashboard.tsx` | Modify | Reset sensor state when switching batches |
 
 ---
 
 ## Technical Details
 
-### Reading Progress State
+### Data Flow After Changes
 
-```typescript
-// In Dashboard.tsx
-const MAX_READINGS = 30;
-const readingCount = sensorHistory.length;
-const isComplete = readingCount >= MAX_READINGS;
-
-// Polling effect - stops when complete
-useEffect(() => {
-  if (currentBatch && !isSimulating && !isComplete) {
-    loadSensorHistory();
-    const interval = setInterval(loadSensorHistory, 5000);
-    return () => clearInterval(interval);
-  }
-}, [currentBatch, loadSensorHistory, isSimulating, isComplete]);
+```text
+1. User creates/selects batch (e.g., "LAC-2026-0010")
+2. ESP32 is synced with that batch_id
+3. ESP32 sends sensor data to PHP backend
+4. PHP checks: does this batch already have 30 readings? 
+   - No  -> INSERT reading, return prediction
+   - Yes -> Return error "limit reached", ESP32 stops sending
+5. Frontend polls history every 5s
+6. PHP returns only readings WHERE created_at >= batch.created_at
+7. Frontend updates progress bar: X / 30
+8. At 30/30, polling stops, auto-save triggers, report becomes available
 ```
 
-### Report Generator Signature
+### ESP32 Handling of "Limit Reached"
 
-```typescript
-// src/lib/generateReport.ts
-export function generateReport(
-  batch: Batch,
-  readings: SensorReading[],
-  grade: string,
-  shelfLife: number
-): void {
-  // Opens new window with formatted HTML, auto-triggers print
-}
-```
-
-### Batch List SQL Change
-
-```sql
--- Before
-WHERE b.user_id = ?
-
--- After  
-WHERE b.user_id = ? AND b.batch_id NOT LIKE 'DATASET-%'
-```
-
-### Auto-Save on Completion
-
-When `isComplete` becomes `true` for the first time, the dashboard automatically calls `historyAPI.save()` with the final reading's data. A toast notification confirms the save. This replaces the manual "Save" button workflow.
+The ESP32 code currently doesn't check the response from the backend. It will keep sending data, but the backend will simply reject it. This is fine -- no wasted data since the readings won't be stored. If desired, a future enhancement could have the ESP32 check the response and stop sending.
 
