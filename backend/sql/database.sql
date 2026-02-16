@@ -114,6 +114,23 @@ CREATE TABLE batch_history (
     INDEX idx_batch (batch_id)
 );
 
+-- Dataset gathering sessions
+CREATE TABLE dataset_sessions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    batch_id VARCHAR(50) UNIQUE NOT NULL,
+    user_id INT NOT NULL,
+    initial_shelf_life DECIMAL(10,2) DEFAULT 72.00,
+    status_override ENUM('good', 'fair', 'spoiled') DEFAULT 'good',
+    session_state ENUM('active', 'paused', 'stopped') DEFAULT 'active',
+    total_paused_seconds INT DEFAULT 0,
+    last_paused_at TIMESTAMP NULL,
+    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    stopped_at TIMESTAMP NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_state (session_state),
+    INDEX idx_batch (batch_id)
+);
+
 -- Insert default thresholds
 INSERT INTO system_settings (setting_key, setting_value) VALUES
 ('ethanol_threshold', '50'),

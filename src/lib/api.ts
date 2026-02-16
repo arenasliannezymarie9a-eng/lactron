@@ -47,9 +47,23 @@ export interface SensorData {
 export interface SensorReading extends SensorData {
   id: number;
   batch_id: string;
-  status: 'good' | 'spoiled';
+  status: 'good' | 'fair' | 'spoiled';
   predicted_shelf_life: number;
   created_at: string;
+}
+
+export interface DatasetSession {
+  id: number;
+  batch_id: string;
+  user_id: number;
+  initial_shelf_life: number;
+  status_override: 'good' | 'fair' | 'spoiled';
+  session_state: 'active' | 'paused' | 'stopped';
+  total_paused_seconds: number;
+  started_at: string;
+  stopped_at: string | null;
+  reading_count?: number;
+  remaining_shelf_life?: number;
 }
 
 export interface PredictionResult {
@@ -462,6 +476,101 @@ export const esp32API = {
       return await response.json();
     } catch (error) {
       return { success: false, error: 'ESP32 offline' };
+    }
+  },
+};
+
+// Dataset Gathering API
+export const datasetAPI = {
+  async start(initialShelfLife: number): Promise<ApiResponse<DatasetSession>> {
+    try {
+      const response = await fetch(`${API_CONFIG.PHP_BASE_URL}/dataset.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'start', initial_shelf_life: initialShelfLife }),
+      });
+      return await response.json();
+    } catch (error) {
+      return { success: false, error: 'Connection failed' };
+    }
+  },
+
+  async pause(batchId: string): Promise<ApiResponse<null>> {
+    try {
+      const response = await fetch(`${API_CONFIG.PHP_BASE_URL}/dataset.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'pause', batch_id: batchId }),
+      });
+      return await response.json();
+    } catch (error) {
+      return { success: false, error: 'Connection failed' };
+    }
+  },
+
+  async resume(batchId: string): Promise<ApiResponse<null>> {
+    try {
+      const response = await fetch(`${API_CONFIG.PHP_BASE_URL}/dataset.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'resume', batch_id: batchId }),
+      });
+      return await response.json();
+    } catch (error) {
+      return { success: false, error: 'Connection failed' };
+    }
+  },
+
+  async stop(batchId: string): Promise<ApiResponse<null>> {
+    try {
+      const response = await fetch(`${API_CONFIG.PHP_BASE_URL}/dataset.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'stop', batch_id: batchId }),
+      });
+      return await response.json();
+    } catch (error) {
+      return { success: false, error: 'Connection failed' };
+    }
+  },
+
+  async updateStatus(batchId: string, status: 'good' | 'fair' | 'spoiled'): Promise<ApiResponse<null>> {
+    try {
+      const response = await fetch(`${API_CONFIG.PHP_BASE_URL}/dataset.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'update_status', batch_id: batchId, status }),
+      });
+      return await response.json();
+    } catch (error) {
+      return { success: false, error: 'Connection failed' };
+    }
+  },
+
+  async getActive(): Promise<ApiResponse<DatasetSession | null>> {
+    try {
+      const response = await fetch(`${API_CONFIG.PHP_BASE_URL}/dataset.php?action=active`, {
+        credentials: 'include',
+      });
+      return await response.json();
+    } catch (error) {
+      return { success: false, error: 'Connection failed' };
+    }
+  },
+
+  async getList(): Promise<ApiResponse<DatasetSession[]>> {
+    try {
+      const response = await fetch(`${API_CONFIG.PHP_BASE_URL}/dataset.php?action=list`, {
+        credentials: 'include',
+      });
+      return await response.json();
+    } catch (error) {
+      return { success: false, error: 'Connection failed' };
     }
   },
 };

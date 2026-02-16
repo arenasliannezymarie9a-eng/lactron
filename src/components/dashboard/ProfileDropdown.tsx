@@ -5,6 +5,7 @@ import {
   Sun,
   Moon,
   History,
+  Database,
   LogOut,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -22,12 +23,14 @@ interface ProfileDropdownProps {
   isDark: boolean;
   onToggleTheme: () => void;
   onViewHistory: () => void;
+  onOpenDatasetGathering?: () => void;
 }
 
 const ProfileDropdown = ({
   isDark,
   onToggleTheme,
   onViewHistory,
+  onOpenDatasetGathering,
 }: ProfileDropdownProps) => {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
@@ -108,6 +111,15 @@ const ProfileDropdown = ({
               >
                 <History className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm">Batch History</span>
+              </DropdownMenuItem>
+
+              {/* Dataset Gathering */}
+              <DropdownMenuItem
+                onClick={onOpenDatasetGathering}
+                className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg hover:bg-secondary/80 transition-colors"
+              >
+                <Database className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm">Dataset Gathering</span>
               </DropdownMenuItem>
 
               <DropdownMenuSeparator className="bg-border/50" />

@@ -12,6 +12,7 @@ import MolecularFingerprint from "@/components/dashboard/MolecularFingerprint";
 import ShelfLifeCard from "@/components/dashboard/ShelfLifeCard";
 import CreateBatchModal from "@/components/dashboard/CreateBatchModal";
 import BatchHistoryModal from "@/components/dashboard/BatchHistoryModal";
+import DatasetGatheringModal from "@/components/dashboard/DatasetGatheringModal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { authAPI, batchAPI, sensorAPI, historyAPI, esp32API, Batch, SensorReading } from "@/lib/api";
 
@@ -34,6 +35,7 @@ const [sensorData, setSensorData] = useState<SensorData | null>(null);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isDatasetModalOpen, setIsDatasetModalOpen] = useState(false);
   const [isSavingBatch, setIsSavingBatch] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
@@ -230,6 +232,7 @@ const [sensorData, setSensorData] = useState<SensorData | null>(null);
             isDark={isDark}
             onToggleTheme={() => setIsDark(!isDark)}
             onViewHistory={() => setIsHistoryModalOpen(true)}
+            onOpenDatasetGathering={() => setIsDatasetModalOpen(true)}
           />
 
           <AnimatePresence mode="wait">
@@ -308,6 +311,11 @@ const [sensorData, setSensorData] = useState<SensorData | null>(null);
       <BatchHistoryModal
         isOpen={isHistoryModalOpen}
         onClose={() => setIsHistoryModalOpen(false)}
+      />
+
+      <DatasetGatheringModal
+        isOpen={isDatasetModalOpen}
+        onClose={() => setIsDatasetModalOpen(false)}
       />
     </>
   );
