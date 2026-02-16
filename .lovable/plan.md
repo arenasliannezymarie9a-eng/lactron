@@ -1,150 +1,180 @@
 
 
-# Refine Dataset Gathering: Fix Remaining Time, Optional Warm-Up
+# Refactor Dashboard: Filter Dataset Batches, Fixed 30-Reading Progress, and Professional PDF Reports
 
-## Problems Identified
+## Overview
 
-1. **Remaining shelf life not decreasing / showing 80h instead of 72h**: The PHP `computeRemainingShelfLife()` function uses `time()` (server UTC) vs `strtotime($session['started_at'])` which comes from MySQL `CURRENT_TIMESTAMP`. If the MySQL timezone and PHP timezone differ, `strtotime()` can misinterpret the timestamp, causing a negative elapsed time that inflates the result above the initial value. The fix is to use MySQL's own `TIMESTAMPDIFF` to compute elapsed time server-side (consistent timezone), and also clamp the result to never exceed `initial_shelf_life`.
+Three major changes to the dashboard batch monitoring workflow:
 
-2. **Warm-up overlay is always mandatory**: Users want the option to skip or disable it. Add a toggle switch to the dashboard (stored in localStorage) that controls whether the warm-up overlay appears and whether the ESP32 gates data during warm-up. The ESP32 warm-up gate stays in firmware (hardware calibration is real), but the UI overlay becomes optional.
+1. **Hide dataset batches** from the batch selector and welcome state -- only show regular monitoring batches (filter out `DATASET-*` prefixed batches).
+2. **Fixed 30-reading limit per batch** -- replace the continuous 5-second polling with a progress-based approach. When a batch is selected, it collects up to 30 sensor readings. A progress bar shows how many readings have been received. Once all 30 are collected, polling stops and a report is auto-generated.
+3. **Professional printable PDF report** -- instead of using `window.print()` to print the raw UI, generate a clean, structured HTML report document in a new window with proper headers, logo, timestamps, tables, and print-optimized CSS.
 
-## Changes
+---
 
-### 1. Fix Remaining Shelf Life (PHP backend)
+## 1. Filter Out Dataset Batches
 
-**File: `backend/php/api/dataset.php`**
+### Backend: `backend/php/api/batches.php`
 
-Replace the `computeRemainingShelfLife()` function to use MySQL `TIMESTAMPDIFF` instead of PHP `time()` vs `strtotime()`. This eliminates timezone mismatch issues.
+In the `list` action query, add a `WHERE` clause to exclude batches whose `batch_id` starts with `DATASET-`:
 
-Alternatively, fix the PHP function by:
-- Using `UNIX_TIMESTAMP(started_at)` from MySQL instead of `strtotime()`
-- Clamping result: `min($initialHours, max(0, $remainingHours))`
-
-The simpler approach is to clamp in PHP and normalize timezone handling:
-
-```php
-function computeRemainingShelfLife($session) {
-    $initialHours = floatval($session['initial_shelf_life']);
-    $startedAt = strtotime($session['started_at'] . ' UTC'); // force UTC interpretation
-    $totalPaused = intval($session['total_paused_seconds']);
-
-    if ($session['session_state'] === 'stopped' && $session['stopped_at']) {
-        $endTime = strtotime($session['stopped_at'] . ' UTC');
-    } else if ($session['session_state'] === 'paused' && $session['last_paused_at']) {
-        $endTime = strtotime($session['last_paused_at'] . ' UTC');
-    } else {
-        $endTime = time(); // UTC
-    }
-
-    $effectiveElapsed = max(0, ($endTime - $startedAt) - $totalPaused);
-    $remainingHours = $initialHours - ($effectiveElapsed / 3600);
-    return min($initialHours, max(0, round($remainingHours, 2)));
-}
+```sql
+WHERE b.user_id = ? AND b.batch_id NOT LIKE 'DATASET-%'
 ```
 
-The key fixes:
-- Append `' UTC'` to timestamps from MySQL so `strtotime()` interprets them consistently
-- Clamp `effectiveElapsed` to never be negative
-- Clamp result to never exceed `initial_shelf_life`
+This ensures the `batchAPI.getAll()` response never includes dataset gathering batches.
 
-### 2. Frontend: Live countdown for remaining time
+### Frontend
 
-**File: `src/components/dashboard/DatasetGatheringModal.tsx`**
+No frontend filtering needed -- the backend handles it. The `WelcomeState` and `BatchSelector` components will automatically only show regular batches.
 
-The remaining time currently only updates when the API is polled (every 5 seconds). Add a local 1-second countdown timer that decrements the displayed remaining shelf life between polls, so the user sees it ticking down in real-time.
+---
 
-Changes:
-- Add a `displayRemaining` state initialized from `activeSession.remaining_shelf_life`
-- Use a `useEffect` with a 1-second interval that decrements `displayRemaining` by `1/3600` (one second in hours) when session is active
-- Sync `displayRemaining` from the API value whenever `activeSession` updates from a poll
-- Display `displayRemaining` instead of `activeSession.remaining_shelf_life`
+## 2. Fixed 30-Reading Progress System
 
-### 3. Optional Warm-Up Toggle
+### How It Works
 
-**File: `src/pages/Dashboard.tsx`**
+```text
+1. User selects a batch
+2. Dashboard fetches sensor history (up to 30 readings)
+3. Progress bar shows: "X / 30 readings collected"
+4. If < 30 readings, poll every 5 seconds for new readings
+5. Once 30 readings are reached, stop polling
+6. Show "Analysis Complete" state with a "Generate Report" button
+7. The final grade and shelf life are derived from the last (30th) reading
+```
 
-- Add a `warmUpEnabled` state initialized from `localStorage.getItem('lactron_warmup_enabled')` (default: `true`)
-- Pass it to `WarmUpOverlay`: only show when `warmUpEnabled && esp32Status.isWarmingUp`
-- Pass a toggle callback to the settings area
+### Frontend Changes
 
-**File: `src/components/dashboard/WarmUpOverlay.tsx`**
+#### `src/pages/Dashboard.tsx`
 
-- No changes needed -- it's already controlled by `isOpen` prop
+- Change `loadSensorHistory` to fetch exactly 30 readings: `sensorAPI.getHistory(batch_id, 30)`
+- Track reading count: `const readingCount = sensorHistory.length`
+- Define `const MAX_READINGS = 30`
+- Derive `isComplete = readingCount >= MAX_READINGS`
+- **Stop polling when complete**: modify the polling `useEffect` to only set up the interval when `!isComplete`
+- Pass `readingCount`, `MAX_READINGS`, and `isComplete` to child components
+- Remove the `handleSaveBatch` manual save -- replace it with auto-save when 30 readings are reached
+- When `isComplete` transitions to `true`, automatically call `historyAPI.save()` to archive the batch
 
-**File: `src/components/dashboard/DashboardNav.tsx` / `ProfileDropdown.tsx`**
+#### `src/components/dashboard/BatchSelector.tsx`
 
-- Add a "Sensor Warm-Up" toggle switch in the profile dropdown menu (between Dataset Gathering and Logout)
-- When toggled off, the warm-up overlay won't appear (localStorage persists the preference)
-- Show a small label: "Sensor Warm-Up: On/Off"
+- Replace the "Save" button with a progress indicator
+- Show a progress bar: `readingCount / maxReadings` (e.g., "12 / 30 readings")
+- When complete, show a green checkmark badge instead of the progress bar
+- Keep "New", "History", and "Close" buttons
+- Add a "Report" button (only visible when `isComplete`) that triggers PDF generation
 
-### 4. UI Refinements for Dataset Gathering Modal
+#### `src/components/dashboard/StatusHero.tsx`
 
-**File: `src/components/dashboard/DatasetGatheringModal.tsx`**
+- No structural changes needed -- it already handles `hasData` properly
+- The grade will still show `--` until the first reading arrives, then update with each reading
 
-Minor UI polish:
-- Show remaining time with more precision (e.g., `71h 58m` format instead of just `72.0h`) for better feedback
-- Add a subtle pulsing animation to the "ACTIVE" badge
-- Show "Awaiting sensor data..." placeholder when `latestSensor` is null and session is active
+#### `src/components/dashboard/MolecularFingerprint.tsx`
+
+- Add a small reading counter badge: "Reading 12/30" in the header area
+- The chart will show up to 30 data points
+
+#### `src/components/dashboard/ShelfLifeCard.tsx`
+
+- When `isComplete`, change the tips section to show "Analysis Complete" with a summary
+- Replace "Simulate Event" button with "Generate Report" button when complete
+- Keep simulation available only while readings are still in progress
+
+---
+
+## 3. Professional PDF Report Generation
+
+### New File: `src/lib/generateReport.ts`
+
+A utility function that generates a professional HTML document in a new browser window optimized for printing to PDF.
+
+The report includes:
+- **Header**: LACTRON logo (embedded as base64), title "Milk Quality Analysis Report", report generation timestamp
+- **Batch Information Table**: Batch ID, Collector Name, Time of Collection, Total Readings, Analysis Duration
+- **Sensor Readings Summary Table**: Average, Min, Max for each sensor (Ethanol, Ammonia, H2S) calculated from all 30 readings
+- **Final Classification**: Grade (GOOD/SPOILED) with color coding
+- **Estimated Shelf Life**: The final predicted value
+- **Individual Readings Table**: All 30 readings with timestamp, ethanol, ammonia, H2S, status, and predicted shelf life
+- **Footer**: "Generated by LACTRON - Solar-Powered IoT Smart System for Milk Quality Monitoring", page numbers via CSS `@page`
+
+### Report Styling
+
+The report uses inline CSS and `@media print` rules for clean PDF output:
+- A4 page size with proper margins
+- Professional fonts (system sans-serif stack)
+- Clean table borders, alternating row colors
+- Color-coded grade badge (green for GOOD, red for SPOILED)
+- No interactive elements or backgrounds -- pure print-ready layout
+- Auto-triggers `window.print()` after rendering
+
+### Integration Points
+
+- **ShelfLifeCard**: "Generate Report" button calls `generateReport(batch, sensorHistory, status, shelfLife)`
+- **BatchSelector**: "Report" button (when complete) calls the same function
+- **BatchHistoryModal**: Replace `window.print()` with a similar professional report for saved history items
+
+---
 
 ## Files Summary
 
 | File | Action | Description |
 |------|--------|-------------|
-| `backend/php/api/dataset.php` | Modify | Fix timezone handling in `computeRemainingShelfLife()`, clamp result |
-| `src/components/dashboard/DatasetGatheringModal.tsx` | Modify | Add local 1-second countdown, format as hours+minutes, UI polish |
-| `src/pages/Dashboard.tsx` | Modify | Add `warmUpEnabled` state from localStorage, conditionally show overlay |
-| `src/components/dashboard/ProfileDropdown.tsx` | Modify | Add warm-up on/off toggle switch |
-| `src/components/dashboard/DashboardNav.tsx` | Modify | Pass warm-up toggle props through |
+| `backend/php/api/batches.php` | Modify | Add `NOT LIKE 'DATASET-%'` filter to list query |
+| `src/pages/Dashboard.tsx` | Modify | 30-reading limit, stop polling when complete, auto-save |
+| `src/components/dashboard/BatchSelector.tsx` | Modify | Replace Save button with progress bar, add Report button |
+| `src/components/dashboard/ShelfLifeCard.tsx` | Modify | Show completion state, replace simulate with Report button |
+| `src/components/dashboard/MolecularFingerprint.tsx` | Modify | Add reading counter badge |
+| `src/lib/generateReport.ts` | Create | Professional HTML report generator |
+| `src/components/dashboard/BatchHistoryModal.tsx` | Modify | Use professional report instead of `window.print()` |
+
+---
 
 ## Technical Details
 
-### Remaining Time Fix
-
-The root cause of the 80h bug is likely PHP's `strtotime()` interpreting a MySQL timestamp as local time when `time()` returns UTC (or vice versa). An 8-hour offset (e.g., UTC+8 timezone) would explain `72 + 8 = 80`. The fix normalizes both sides to UTC.
-
-### Local Countdown Logic
-
-```typescript
-// In DatasetGatheringModal
-const [displayRemaining, setDisplayRemaining] = useState(0);
-
-// Sync from API
-useEffect(() => {
-  if (activeSession?.remaining_shelf_life !== undefined) {
-    setDisplayRemaining(Number(activeSession.remaining_shelf_life));
-  }
-}, [activeSession?.remaining_shelf_life]);
-
-// Local 1-second tick
-useEffect(() => {
-  if (!activeSession || activeSession.session_state !== 'active') return;
-  const interval = setInterval(() => {
-    setDisplayRemaining(prev => Math.max(0, prev - 1/3600));
-  }, 1000);
-  return () => clearInterval(interval);
-}, [activeSession?.session_state]);
-```
-
-### Warm-Up Toggle Storage
+### Reading Progress State
 
 ```typescript
 // In Dashboard.tsx
-const [warmUpEnabled, setWarmUpEnabled] = useState(() => {
-  return localStorage.getItem('lactron_warmup_enabled') !== 'false';
-});
+const MAX_READINGS = 30;
+const readingCount = sensorHistory.length;
+const isComplete = readingCount >= MAX_READINGS;
 
-const toggleWarmUp = () => {
-  setWarmUpEnabled(prev => {
-    const next = !prev;
-    localStorage.setItem('lactron_warmup_enabled', String(next));
-    return next;
-  });
-};
-
-// In JSX
-<WarmUpOverlay
-  isOpen={warmUpEnabled && esp32Status.isWarmingUp}
-  remaining={esp32Status.warmUpRemaining}
-/>
+// Polling effect - stops when complete
+useEffect(() => {
+  if (currentBatch && !isSimulating && !isComplete) {
+    loadSensorHistory();
+    const interval = setInterval(loadSensorHistory, 5000);
+    return () => clearInterval(interval);
+  }
+}, [currentBatch, loadSensorHistory, isSimulating, isComplete]);
 ```
+
+### Report Generator Signature
+
+```typescript
+// src/lib/generateReport.ts
+export function generateReport(
+  batch: Batch,
+  readings: SensorReading[],
+  grade: string,
+  shelfLife: number
+): void {
+  // Opens new window with formatted HTML, auto-triggers print
+}
+```
+
+### Batch List SQL Change
+
+```sql
+-- Before
+WHERE b.user_id = ?
+
+-- After  
+WHERE b.user_id = ? AND b.batch_id NOT LIKE 'DATASET-%'
+```
+
+### Auto-Save on Completion
+
+When `isComplete` becomes `true` for the first time, the dashboard automatically calls `historyAPI.save()` with the final reading's data. A toast notification confirms the save. This replaces the manual "Save" button workflow.
 
