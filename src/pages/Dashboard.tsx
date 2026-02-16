@@ -134,7 +134,7 @@ const [sensorData, setSensorData] = useState<SensorData | null>(null);
         ammonia: 5,    // Well below 10 ppm fresh_max
         h2s: 0.8       // Well below 2 ppm fresh_max
       });
-      setShelfLife(6.5);
+      setShelfLife(45.5);
     }
   }
   };
@@ -273,7 +273,7 @@ const [sensorData, setSensorData] = useState<SensorData | null>(null);
                   </div>
                   <div className="lg:col-span-2">
                     <ShelfLifeCard
-                      days={shelfLife}
+                      hours={shelfLife}
                       status={status}
                       batch={currentBatch}
                       onSimulate={simulateEvent}
@@ -291,7 +291,7 @@ const [sensorData, setSensorData] = useState<SensorData | null>(null);
                   <p className="mb-1">
                     <span className="font-semibold text-primary">LACTRON</span> - Solar-Powered IoT Smart System for Milk Quality Monitoring
                   </p>
-                  <p>AI-Driven Spoilage Prediction using TensorFlow Regression Model</p>
+                  <p>AI-Driven Spoilage Prediction using Scikit-learn Regression Model</p>
                 </motion.footer>
               </motion.div>
             )}

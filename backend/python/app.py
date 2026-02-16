@@ -48,13 +48,17 @@ SPOILAGE_THRESHOLDS = {
     'h2s': 15        # Spoiled if > 15 ppm
 }
 
+# Shelf life unit and max
+SHELF_LIFE_UNIT = 'hours'
+SHELF_LIFE_MAX = 72
+
 
 def normalize(value, param):
     return (value - NORM_PARAMS[param]['min']) / (NORM_PARAMS[param]['max'] - NORM_PARAMS[param]['min'])
 
 
 def predict_shelf_life(ethanol, ammonia, h2s):
-    """Predict shelf life using ML model or fallback formula"""
+    """Predict shelf life in HOURS using ML model or fallback formula"""
     
     print(f"[PREDICT] Input: ethanol={ethanol}, ammonia={ammonia}, h2s={h2s}")
     
@@ -73,16 +77,16 @@ def predict_shelf_life(ethanol, ammonia, h2s):
             prediction = model.predict(input_data, verbose=0)[0][0]
             confidence = 0.92
         
-        # Keep 2 decimal places for precision
+        # Keep 2 decimal places for precision (hours)
         shelf_life = max(0, round(float(prediction), 2))
-        print(f"[PREDICT] Model output: {prediction:.4f}, shelf_life: {shelf_life}")
+        print(f"[PREDICT] Model output: {prediction:.4f}, shelf_life: {shelf_life} hours")
     else:
         # Fallback: Formula-based prediction with realistic thresholds
         eth_score = max(0, 1 - (ethanol / SPOILAGE_THRESHOLDS['ethanol']))
         amm_score = max(0, 1 - (ammonia / SPOILAGE_THRESHOLDS['ammonia']))
         h2s_score = max(0, 1 - (h2s / SPOILAGE_THRESHOLDS['h2s']))
         quality_score = (eth_score * 0.30 + amm_score * 0.30 + h2s_score * 0.40)
-        shelf_life = max(0, round(quality_score * 7, 2))
+        shelf_life = max(0, round(quality_score * 72, 2))
         confidence = 0.78
         print(f"[PREDICT] Fallback - scores: eth={eth_score:.2f}, amm={amm_score:.2f}, h2s={h2s_score:.2f}")
     
@@ -97,7 +101,8 @@ def predict_shelf_life(ethanol, ammonia, h2s):
     result = {
         'status': status,
         'shelf_life': shelf_life if not is_spoiled else 0,
-        'confidence': confidence
+        'confidence': confidence,
+        'unit': SHELF_LIFE_UNIT
     }
     print(f"[PREDICT] Result: {result}")
     
@@ -119,10 +124,10 @@ def predict():
 def test_prediction():
     """Test endpoint to verify model predictions with sample cases"""
     test_cases = [
-        {'ethanol': 10, 'ammonia': 3, 'h2s': 0.5, 'expected': 'fresh (~6-7 days)'},
-        {'ethanol': 25, 'ammonia': 12, 'h2s': 3, 'expected': 'slightly aged (~4-5 days)'},
-        {'ethanol': 45, 'ammonia': 20, 'h2s': 6, 'expected': 'warning zone (~3-4 days)'},
-        {'ethanol': 90, 'ammonia': 50, 'h2s': 20, 'expected': 'spoiled (0 days)'},
+        {'ethanol': 10, 'ammonia': 3, 'h2s': 0.5, 'expected': 'fresh (~45-50 hours)'},
+        {'ethanol': 25, 'ammonia': 12, 'h2s': 3, 'expected': 'slightly aged (~30-40 hours)'},
+        {'ethanol': 45, 'ammonia': 20, 'h2s': 6, 'expected': 'warning zone (~20-30 hours)'},
+        {'ethanol': 90, 'ammonia': 50, 'h2s': 20, 'expected': 'spoiled (0 hours)'},
     ]
     
     results = []
@@ -143,7 +148,9 @@ def test_prediction():
         'model_loaded': model is not None,
         'model_type': model_type,
         'thresholds': SPOILAGE_THRESHOLDS,
-        'norm_params': NORM_PARAMS
+        'norm_params': NORM_PARAMS,
+        'unit': SHELF_LIFE_UNIT,
+        'max_shelf_life': SHELF_LIFE_MAX
     })
 
 
@@ -154,7 +161,9 @@ def health():
         'model_loaded': model is not None,
         'model_type': model_type,
         'python_version': f'{__import__("sys").version}',
-        'thresholds': SPOILAGE_THRESHOLDS
+        'thresholds': SPOILAGE_THRESHOLDS,
+        'unit': SHELF_LIFE_UNIT,
+        'max_shelf_life': SHELF_LIFE_MAX
     })
 
 

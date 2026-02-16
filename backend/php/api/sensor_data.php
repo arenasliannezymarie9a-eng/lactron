@@ -79,7 +79,7 @@ function callMlServer($ethanol, $ammonia, $h2s) {
         return ['status' => $result['status'], 'shelfLife' => $result['shelf_life'], 'confidence' => $result['confidence'] ?? 0.9];
     }
     
-    // Fallback prediction if ML server unavailable
-    $isSpoiled = $ethanol > 200 || $ammonia > 30 || $h2s > 10;
-    return ['status' => $isSpoiled ? 'spoiled' : 'good', 'shelfLife' => $isSpoiled ? 0 : rand(2, 7), 'confidence' => 0.75];
+    // Fallback prediction if ML server unavailable (hours, 0-72)
+    $isSpoiled = $ethanol > 80 || $ammonia > 40 || $h2s > 15;
+    return ['status' => $isSpoiled ? 'spoiled' : 'good', 'shelfLife' => $isSpoiled ? 0 : rand(14, 50), 'confidence' => 0.75];
 }
