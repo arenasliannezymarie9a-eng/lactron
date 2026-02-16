@@ -5,16 +5,15 @@ import { Batch } from "@/lib/api";
 import { format } from "date-fns";
 
 interface ShelfLifeCardProps {
-  days: number;
+  hours: number;
   status: "good" | "spoiled";
   batch: Batch | null;
   onSimulate: () => void;
   isSimulating?: boolean;
 }
 
-const ShelfLifeCard = ({ days, status, batch, onSimulate, isSimulating = false }: ShelfLifeCardProps) => {
-  // Ensure days is a valid number, default to 0 if not
-  const safeDays = typeof days === 'number' && !isNaN(days) ? days : 0;
+const ShelfLifeCard = ({ hours, status, batch, onSimulate, isSimulating = false }: ShelfLifeCardProps) => {
+  const safeHours = typeof hours === 'number' && !isNaN(hours) ? hours : 0;
   const isGood = status === "good";
 
   const tips = isGood
@@ -84,7 +83,7 @@ const ShelfLifeCard = ({ days, status, batch, onSimulate, isSimulating = false }
         </div>
 
         <motion.div
-          key={safeDays}
+          key={safeHours}
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: "spring", stiffness: 300, damping: 20 }}
@@ -92,8 +91,8 @@ const ShelfLifeCard = ({ days, status, batch, onSimulate, isSimulating = false }
             isGood ? "text-primary" : "text-status-danger"
           }`}
         >
-          {safeDays.toFixed(1)}
-          <span className="text-xl text-muted-foreground font-medium ml-2">Days</span>
+          {safeHours.toFixed(1)}
+          <span className="text-xl text-muted-foreground font-medium ml-2">Hours</span>
         </motion.div>
       </div>
 

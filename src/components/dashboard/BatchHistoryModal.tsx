@@ -266,7 +266,7 @@ const BatchDetailView = ({ batch, onBack, onPrint }: BatchDetailViewProps) => {
             Shelf Life
           </div>
           <div className="text-2xl font-extrabold text-primary font-mono">
-            {batch.shelf_life} <span className="text-sm text-muted-foreground">Days</span>
+            {batch.shelf_life} <span className="text-sm text-muted-foreground">Hours</span>
           </div>
         </div>
       </div>

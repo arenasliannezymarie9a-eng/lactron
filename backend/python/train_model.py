@@ -2,8 +2,10 @@
 LACTRON Shelf Life Prediction Model - Realistic Milk Spoilage Parameters
 Based on dairy science research for volatile compound detection
 Compatible with Python 3.14 using scikit-learn
+Predicts shelf life in HOURS (0-72)
 """
 import numpy as np
+import pandas as pd
 import pickle
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.model_selection import train_test_split
@@ -70,25 +72,49 @@ quality_scores = np.array([
     for e, a, h in zip(ethanol, ammonia, h2s)
 ])
 
-# Shelf life: 0-7 days based on quality + some noise
+# Shelf life: 0-72 HOURS based on quality + some noise
 shelf_life = np.clip(
-    quality_scores * 7 + np.random.normal(0, 0.3, n_samples),
-    0, 7
+    quality_scores * 72 + np.random.normal(0, 2.5, n_samples),
+    0, 72
 )
+
+# Save full dataset to CSV
+df = pd.DataFrame({
+    'ethanol': ethanol,
+    'ammonia': ammonia,
+    'h2s': h2s,
+    'shelf_life_hours': shelf_life
+})
+df.to_csv('dataset.csv', index=False)
+print(f"Full dataset saved to dataset.csv ({len(df)} samples)")
+
+# Split: 70% train, 15% validation, 15% test
+train_df, temp_df = train_test_split(df, test_size=0.3, random_state=42)
+val_df, test_df = train_test_split(temp_df, test_size=0.5, random_state=42)
+
+train_df.to_csv('train.csv', index=False)
+val_df.to_csv('val.csv', index=False)
+test_df.to_csv('test.csv', index=False)
+print(f"Split — Train: {len(train_df)}, Validation: {len(val_df)}, Test: {len(test_df)}")
 
 # Normalize for model input
-X = np.column_stack([
-    ethanol / SENSOR_CONFIG['ethanol']['train_max'],
-    ammonia / SENSOR_CONFIG['ammonia']['train_max'],
-    h2s / SENSOR_CONFIG['h2s']['train_max']
-])
-y = shelf_life
+def normalize_df(data):
+    return np.column_stack([
+        data['ethanol'].values / SENSOR_CONFIG['ethanol']['train_max'],
+        data['ammonia'].values / SENSOR_CONFIG['ammonia']['train_max'],
+        data['h2s'].values / SENSOR_CONFIG['h2s']['train_max']
+    ])
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
-)
+X_train = normalize_df(train_df)
+y_train = train_df['shelf_life_hours'].values
 
-print("Training Gradient Boosting Regressor with realistic milk parameters...")
+X_val = normalize_df(val_df)
+y_val = val_df['shelf_life_hours'].values
+
+X_test = normalize_df(test_df)
+y_test = test_df['shelf_life_hours'].values
+
+print("\nTraining Gradient Boosting Regressor (shelf life in hours)...")
 model = GradientBoostingRegressor(
     n_estimators=150,
     max_depth=6,
@@ -98,10 +124,16 @@ model = GradientBoostingRegressor(
 )
 model.fit(X_train, y_train)
 
-y_pred = model.predict(X_test)
-mae = mean_absolute_error(y_test, y_pred)
-r2 = r2_score(y_test, y_pred)
-print(f"Model Performance - MAE: {mae:.4f} days, R²: {r2:.4f}")
+# Evaluate on all splits
+for split_name, X_split, y_split in [
+    ("Train", X_train, y_train),
+    ("Validation", X_val, y_val),
+    ("Test", X_test, y_test)
+]:
+    y_pred = model.predict(X_split)
+    mae = mean_absolute_error(y_split, y_pred)
+    r2 = r2_score(y_split, y_pred)
+    print(f"  {split_name} — MAE: {mae:.4f} hours, R²: {r2:.4f}")
 
 # Test with realistic values
 test_cases = [
@@ -118,7 +150,7 @@ for name, eth, amm, h2s_val in test_cases:
         h2s_val / SENSOR_CONFIG['h2s']['train_max']
     ]])
     pred = model.predict(test_input)[0]
-    print(f"  {name}: Ethanol={eth}, NH3={amm}, H2S={h2s_val} -> {pred:.2f} days")
+    print(f"  {name}: Ethanol={eth}, NH3={amm}, H2S={h2s_val} -> {pred:.2f} hours")
 
 with open('shelf_life_model.pkl', 'wb') as f:
     pickle.dump(model, f)
@@ -132,7 +164,9 @@ norm_params = {
         'ethanol': SENSOR_CONFIG['ethanol']['spoiled'],
         'ammonia': SENSOR_CONFIG['ammonia']['spoiled'],
         'h2s': SENSOR_CONFIG['h2s']['spoiled']
-    }
+    },
+    'unit': 'hours',
+    'max_shelf_life': 72
 }
 with open('norm_params.pkl', 'wb') as f:
     pickle.dump(norm_params, f)
