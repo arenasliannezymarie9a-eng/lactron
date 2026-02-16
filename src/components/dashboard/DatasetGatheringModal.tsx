@@ -37,7 +37,30 @@ const DatasetGatheringModal = ({ isOpen, onClose }: DatasetGatheringModalProps) 
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [latestSensor, setLatestSensor] = useState<{ ethanol: number; ammonia: number; h2s: number } | null>(null);
   const [readingCount, setReadingCount] = useState(0);
+  const [displayRemaining, setDisplayRemaining] = useState(0);
   const esp32Status = useEsp32Status();
+
+  // Sync displayRemaining from API
+  useEffect(() => {
+    if (activeSession?.remaining_shelf_life !== undefined) {
+      setDisplayRemaining(Number(activeSession.remaining_shelf_life));
+    }
+  }, [activeSession?.remaining_shelf_life]);
+
+  // Local 1-second countdown tick
+  useEffect(() => {
+    if (!activeSession || activeSession.session_state !== 'active') return;
+    const interval = setInterval(() => {
+      setDisplayRemaining(prev => Math.max(0, prev - 1 / 3600));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [activeSession?.session_state]);
+
+  const formatRemainingTime = (hours: number) => {
+    const h = Math.floor(hours);
+    const m = Math.floor((hours - h) * 60);
+    return `${h}h ${m.toString().padStart(2, '0')}m`;
+  };
 
   const loadActiveSession = useCallback(async () => {
     const res = await datasetAPI.getActive();
@@ -267,7 +290,7 @@ const DatasetGatheringModal = ({ isOpen, onClose }: DatasetGatheringModalProps) 
                     <Badge
                       variant="outline"
                       className={activeSession.session_state === 'active' 
-                        ? "text-[hsl(var(--status-good))] border-[hsl(var(--status-good))] text-[10px]" 
+                        ? "text-[hsl(var(--status-good))] border-[hsl(var(--status-good))] text-[10px] animate-pulse" 
                         : "text-[hsl(var(--status-warning))] border-[hsl(var(--status-warning))] text-[10px]"}
                     >
                       {activeSession.session_state === 'active' ? '● ACTIVE' : '❚❚ PAUSED'}
@@ -282,7 +305,7 @@ const DatasetGatheringModal = ({ isOpen, onClose }: DatasetGatheringModalProps) 
                   <div>
                     <p className="text-[10px] text-muted-foreground">Remaining</p>
                     <p className="text-sm font-mono font-semibold text-primary">
-                      {Number(activeSession.remaining_shelf_life || 0).toFixed(1)}h
+                      {formatRemainingTime(displayRemaining)}
                     </p>
                   </div>
                   <div>
@@ -321,11 +344,11 @@ const DatasetGatheringModal = ({ isOpen, onClose }: DatasetGatheringModalProps) 
               </div>
 
               {/* Live Sensor Readings */}
-              {latestSensor && (
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                    <Activity className="w-3 h-3" /> Live Readings
-                  </label>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                  <Activity className="w-3 h-3" /> Live Readings
+                </label>
+                {latestSensor ? (
                   <div className="grid grid-cols-3 gap-2">
                     {[
                       { label: "Ethanol", value: latestSensor.ethanol, unit: "ppm" },
@@ -339,8 +362,12 @@ const DatasetGatheringModal = ({ isOpen, onClose }: DatasetGatheringModalProps) 
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="rounded-lg bg-secondary/30 border border-border/30 p-4 text-center">
+                    <p className="text-xs text-muted-foreground animate-pulse">Awaiting sensor data...</p>
+                  </div>
+                )}
+              </div>
 
               {/* Action Buttons */}
               <div className="flex gap-2">

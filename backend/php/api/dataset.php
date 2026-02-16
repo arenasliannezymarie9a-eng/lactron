@@ -166,18 +166,18 @@ if ($method === 'GET') {
 
 function computeRemainingShelfLife($session) {
     $initialHours = floatval($session['initial_shelf_life']);
-    $startedAt = strtotime($session['started_at']);
+    $startedAt = strtotime($session['started_at'] . ' UTC');
     $totalPaused = intval($session['total_paused_seconds']);
     
     if ($session['session_state'] === 'stopped' && $session['stopped_at']) {
-        $endTime = strtotime($session['stopped_at']);
+        $endTime = strtotime($session['stopped_at'] . ' UTC');
     } else if ($session['session_state'] === 'paused' && $session['last_paused_at']) {
-        $endTime = strtotime($session['last_paused_at']);
+        $endTime = strtotime($session['last_paused_at'] . ' UTC');
     } else {
         $endTime = time();
     }
     
-    $effectiveElapsed = ($endTime - $startedAt) - $totalPaused;
+    $effectiveElapsed = max(0, ($endTime - $startedAt) - $totalPaused);
     $remainingHours = $initialHours - ($effectiveElapsed / 3600);
-    return max(0, round($remainingHours, 2));
+    return min($initialHours, max(0, round($remainingHours, 2)));
 }
