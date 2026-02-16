@@ -6,12 +6,14 @@ interface DashboardNavProps {
   isDark: boolean;
   onToggleTheme: () => void;
   onViewHistory: () => void;
+  onOpenDatasetGathering?: () => void;
 }
 
 const DashboardNav = ({
   isDark,
   onToggleTheme,
   onViewHistory,
+  onOpenDatasetGathering,
 }: DashboardNavProps) => {
   return (
     <motion.nav
@@ -44,6 +46,7 @@ const DashboardNav = ({
           isDark={isDark}
           onToggleTheme={onToggleTheme}
           onViewHistory={onViewHistory}
+          onOpenDatasetGathering={onOpenDatasetGathering}
         />
       </div>
     </motion.nav>

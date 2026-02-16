@@ -37,23 +37,56 @@ if ($method === 'GET') {
             exit;
         }
         
-        $batchId = $input['batch_id'] ?? 'DEFAULT';
-        $ethanol = floatval($input['ethanol'] ?? 0);
-        $ammonia = floatval($input['ammonia'] ?? 0);
-        $h2s = floatval($input['h2s'] ?? 0);
+    $batchId = $input['batch_id'] ?? 'DEFAULT';
+    $ethanol = floatval($input['ethanol'] ?? 0);
+    $ammonia = floatval($input['ammonia'] ?? 0);
+    $h2s = floatval($input['h2s'] ?? 0);
+    
+    // Check if this is a dataset gathering batch
+    if (str_starts_with($batchId, 'DATASET-')) {
+        // Look up dataset session
+        $dsStmt = $pdo->prepare("SELECT * FROM dataset_sessions WHERE batch_id = ? AND session_state = 'active'");
+        $dsStmt->execute([$batchId]);
+        $dsSession = $dsStmt->fetch();
         
-        // Call Flask ML server for prediction
-        $prediction = callMlServer($ethanol, $ammonia, $h2s);
+        if (!$dsSession) {
+            echo json_encode(['success' => false, 'error' => 'Dataset session is not active (paused or stopped)']);
+            exit;
+        }
+        
+        // Compute remaining shelf life excluding paused time
+        $initialHours = floatval($dsSession['initial_shelf_life']);
+        $startedAt = strtotime($dsSession['started_at']);
+        $totalPaused = intval($dsSession['total_paused_seconds']);
+        $effectiveElapsed = (time() - $startedAt) - $totalPaused;
+        $remainingHours = max(0, round($initialHours - ($effectiveElapsed / 3600), 2));
+        
+        $statusOverride = $dsSession['status_override'];
         
         $stmt = $pdo->prepare('INSERT INTO sensor_readings (batch_id, ethanol, ammonia, h2s, status, predicted_shelf_life) VALUES (?, ?, ?, ?, ?, ?)');
-        $result = $stmt->execute([$batchId, $ethanol, $ammonia, $h2s, $prediction['status'], $prediction['shelfLife']]);
+        $result = $stmt->execute([$batchId, $ethanol, $ammonia, $h2s, $statusOverride, $remainingHours]);
         
         if ($result) {
             $insertId = $pdo->lastInsertId();
-            echo json_encode(['success' => true, 'data' => $prediction, 'insert_id' => $insertId]);
+            echo json_encode(['success' => true, 'data' => ['status' => $statusOverride, 'shelfLife' => $remainingHours, 'confidence' => 1.0], 'insert_id' => $insertId]);
         } else {
             echo json_encode(['success' => false, 'error' => 'Insert failed', 'errorInfo' => $stmt->errorInfo()]);
         }
+        exit;
+    }
+    
+    // Normal batch - Call Flask ML server for prediction
+    $prediction = callMlServer($ethanol, $ammonia, $h2s);
+    
+    $stmt = $pdo->prepare('INSERT INTO sensor_readings (batch_id, ethanol, ammonia, h2s, status, predicted_shelf_life) VALUES (?, ?, ?, ?, ?, ?)');
+    $result = $stmt->execute([$batchId, $ethanol, $ammonia, $h2s, $prediction['status'], $prediction['shelfLife']]);
+    
+    if ($result) {
+        $insertId = $pdo->lastInsertId();
+        echo json_encode(['success' => true, 'data' => $prediction, 'insert_id' => $insertId]);
+    } else {
+        echo json_encode(['success' => false, 'error' => 'Insert failed', 'errorInfo' => $stmt->errorInfo()]);
+    }
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
