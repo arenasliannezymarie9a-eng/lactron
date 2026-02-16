@@ -13,9 +13,11 @@ interface SensorData {
 interface MolecularFingerprintProps {
   data: SensorData | null;
   history: SensorReading[];
+  readingCount?: number;
+  maxReadings?: number;
 }
 
-const MolecularFingerprint = ({ data, history }: MolecularFingerprintProps) => {
+const MolecularFingerprint = ({ data, history, readingCount = 0, maxReadings = 30 }: MolecularFingerprintProps) => {
   return (
     <motion.div
       initial={{ opacity: 0, x: -20 }}
@@ -27,7 +29,7 @@ const MolecularFingerprint = ({ data, history }: MolecularFingerprintProps) => {
         <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
           <Beaker className="w-5 h-5 text-primary" />
         </div>
-        <div>
+        <div className="flex-1">
           <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
             Molecular Fingerprint
           </h3>
@@ -35,6 +37,9 @@ const MolecularFingerprint = ({ data, history }: MolecularFingerprintProps) => {
             Real-time gas sensor readings
           </p>
         </div>
+        <span className="text-xs font-mono text-muted-foreground bg-secondary/50 px-2.5 py-1 rounded-full">
+          {readingCount}/{maxReadings} readings
+        </span>
       </div>
 
       {data ? (

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Helmet } from "react-helmet-async";
@@ -17,8 +17,11 @@ import WarmUpOverlay from "@/components/dashboard/WarmUpOverlay";
 import { Skeleton } from "@/components/ui/skeleton";
 import useEsp32Status from "@/hooks/useEsp32Status";
 import { authAPI, batchAPI, sensorAPI, historyAPI, esp32API, Batch, SensorReading } from "@/lib/api";
+import { generateReport } from "@/lib/generateReport";
 
 type MilkStatus = "good" | "spoiled";
+
+const MAX_READINGS = 30;
 
 interface SensorData {
   ethanol: number;
@@ -38,7 +41,6 @@ const Dashboard = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isDatasetModalOpen, setIsDatasetModalOpen] = useState(false);
-  const [isSavingBatch, setIsSavingBatch] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [isSimulating, setIsSimulating] = useState(false);
@@ -48,6 +50,9 @@ const Dashboard = () => {
 
   const esp32Status = useEsp32Status();
   const hasData = sensorData !== null;
+  const readingCount = sensorHistory.length;
+  const isComplete = readingCount >= MAX_READINGS;
+  const autoSavedRef = useRef(false);
 
   const toggleWarmUp = () => {
     setWarmUpEnabled(prev => {
@@ -65,7 +70,6 @@ const Dashboard = () => {
     }
   }, [isDark]);
 
-  // Fixed loadBatches without currentBatch dependency
   const loadBatches = useCallback(async (selectLatest = false) => {
     setIsLoading(true);
     const response = await batchAPI.getAll();
@@ -80,12 +84,11 @@ const Dashboard = () => {
 
   const loadSensorHistory = useCallback(async () => {
     if (!currentBatch) return;
-    const response = await sensorAPI.getHistory(currentBatch.batch_id, 20);
+    const response = await sensorAPI.getHistory(currentBatch.batch_id, MAX_READINGS);
     if (response.success && response.data) {
       setSensorHistory(response.data);
       if (response.data.length > 0) {
         const latest = response.data[0];
-        // Explicitly parse numbers from PHP string responses
         setSensorData({
           ethanol: Number(latest.ethanol) || 0,
           ammonia: Number(latest.ammonia) || 0,
@@ -94,7 +97,6 @@ const Dashboard = () => {
         setStatus(latest.status as MilkStatus);
         setShelfLife(Number(latest.predicted_shelf_life) || 0);
       } else {
-        // No readings yet for this batch
         setSensorData(null);
         setStatus("good");
         setShelfLife(0);
@@ -117,72 +119,46 @@ const Dashboard = () => {
     checkAuth();
   }, [navigate, loadBatches]);
 
+  // Polling - stops when 30 readings reached
   useEffect(() => {
-    if (currentBatch && !isSimulating) {
+    if (currentBatch && !isSimulating && !isComplete) {
       loadSensorHistory();
       const interval = setInterval(loadSensorHistory, 5000);
       return () => clearInterval(interval);
     }
-  }, [currentBatch, loadSensorHistory, isSimulating]);
+  }, [currentBatch, loadSensorHistory, isSimulating, isComplete]);
 
-  const simulateEvent = () => {
-    if (isSimulating) {
-      // Exit simulation - reload real data
-      setIsSimulating(false);
-      loadSensorHistory();
-  } else {
-    // Enter simulation mode with realistic values based on ML model thresholds
-    setIsSimulating(true);
-    if (status === "good") {
-      // Simulate SPOILED milk - values above spoilage thresholds
-      // Model thresholds: Ethanol >80, Ammonia >40, H2S >15
-      setStatus("spoiled");
-      setSensorData({ 
-        ethanol: 95,   // Above 80 ppm threshold
-        ammonia: 52,   // Above 40 ppm threshold  
-        h2s: 22        // Above 15 ppm threshold (within 30 max)
+  // Reset auto-save flag when batch changes
+  useEffect(() => {
+    autoSavedRef.current = false;
+  }, [currentBatch?.batch_id]);
+
+  // Auto-save when 30 readings complete
+  useEffect(() => {
+    if (isComplete && currentBatch && sensorData && !autoSavedRef.current && !isSimulating) {
+      autoSavedRef.current = true;
+      const grade = status === "good" ? "GOOD" : "SPOILED";
+      historyAPI.save(
+        currentBatch.batch_id,
+        currentBatch.collector_name,
+        currentBatch.collection_datetime,
+        sensorData.ethanol,
+        sensorData.ammonia,
+        sensorData.h2s,
+        grade,
+        shelfLife
+      ).then(response => {
+        if (response.success) {
+          toast.success("Analysis complete! Batch auto-saved to history.");
+        }
       });
-      setShelfLife(0);
-    } else {
-      // Simulate FRESH milk - values in fresh range
-      // Fresh ranges: Ethanol <20, Ammonia <10, H2S <2
-      setStatus("good");
-      setSensorData({ 
-        ethanol: 12,   // Well below 20 ppm fresh_max
-        ammonia: 5,    // Well below 10 ppm fresh_max
-        h2s: 0.8       // Well below 2 ppm fresh_max
-      });
-      setShelfLife(45.5);
     }
-  }
-  };
+  }, [isComplete, currentBatch, sensorData, status, shelfLife, isSimulating]);
 
-  const handleSaveBatch = async () => {
-    if (!currentBatch) {
-      toast.error("No batch to save");
-      return;
-    }
-
-    setIsSavingBatch(true);
+  const handleGenerateReport = () => {
+    if (!currentBatch) return;
     const grade = status === "good" ? "GOOD" : "SPOILED";
-    
-    const response = await historyAPI.save(
-      currentBatch.batch_id,
-      currentBatch.collector_name,
-      currentBatch.collection_datetime,
-      sensorData.ethanol,
-      sensorData.ammonia,
-      sensorData.h2s,
-      grade,
-      shelfLife
-    );
-
-    if (response.success) {
-      toast.success("Batch saved to history successfully!");
-    } else {
-      toast.error(response.error || "Failed to save batch");
-    }
-    setIsSavingBatch(false);
+    generateReport(currentBatch, sensorHistory, grade, shelfLife);
   };
 
   const handleBatchCreated = async (selectNew: boolean = true) => {
@@ -191,23 +167,35 @@ const Dashboard = () => {
 
   const handleSelectBatch = async (batch: Batch) => {
     setCurrentBatch(batch);
-    
-    // Push batch to ESP32 (non-blocking, fails gracefully)
     const response = await esp32API.setActiveBatch(batch.batch_id);
     if (response.success) {
       toast.success("ESP32 synced with selected batch");
     }
-    // If ESP32 unreachable, it will still sync via polling
   };
 
   const handleCloseBatch = async () => {
     setCurrentBatch(null);
-    
-    // Clear batch on ESP32
     await esp32API.clearBatch();
   };
 
-  // Show loading while checking auth
+  const simulateEvent = () => {
+    if (isSimulating) {
+      setIsSimulating(false);
+      loadSensorHistory();
+    } else {
+      setIsSimulating(true);
+      if (status === "good") {
+        setStatus("spoiled");
+        setSensorData({ ethanol: 95, ammonia: 52, h2s: 22 });
+        setShelfLife(0);
+      } else {
+        setStatus("good");
+        setSensorData({ ethanol: 12, ammonia: 5, h2s: 0.8 });
+        setShelfLife(45.5);
+      }
+    }
+  };
+
   if (isAuthChecking) {
     return (
       <div className="min-h-screen p-4 md:p-6">
@@ -274,10 +262,12 @@ const Dashboard = () => {
                   currentBatch={currentBatch}
                   onSelectBatch={handleSelectBatch}
                   onCreateNew={() => setIsModalOpen(true)}
-                  onSaveBatch={handleSaveBatch}
                   onViewHistory={() => setIsHistoryModalOpen(true)}
                   onCloseBatch={handleCloseBatch}
-                  isSaving={isSavingBatch}
+                  onGenerateReport={handleGenerateReport}
+                  readingCount={readingCount}
+                  maxReadings={MAX_READINGS}
+                  isComplete={isComplete}
                   esp32Status={esp32Status}
                 />
                 
@@ -292,7 +282,12 @@ const Dashboard = () => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
                   <div className="lg:col-span-3">
-                    <MolecularFingerprint data={sensorData} history={sensorHistory} />
+                    <MolecularFingerprint
+                      data={sensorData}
+                      history={sensorHistory}
+                      readingCount={readingCount}
+                      maxReadings={MAX_READINGS}
+                    />
                   </div>
                   <div className="lg:col-span-2">
                     <ShelfLifeCard
@@ -300,7 +295,9 @@ const Dashboard = () => {
                       status={status}
                       batch={currentBatch}
                       onSimulate={simulateEvent}
+                      onGenerateReport={handleGenerateReport}
                       isSimulating={isSimulating}
+                      isComplete={isComplete}
                       hasData={hasData}
                     />
                   </div>

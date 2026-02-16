@@ -1,8 +1,9 @@
 import { motion } from "framer-motion";
-import { Hash, User, Clock, Plus, Save, History, X } from "lucide-react";
+import { Hash, User, Clock, Plus, History, X, FileText, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import Esp32StatusBadge from "./Esp32StatusBadge";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -17,10 +18,12 @@ interface BatchSelectorProps {
   currentBatch: Batch | null;
   onSelectBatch: (batch: Batch) => void;
   onCreateNew: () => void;
-  onSaveBatch: () => void;
   onViewHistory: () => void;
   onCloseBatch: () => void;
-  isSaving: boolean;
+  onGenerateReport: () => void;
+  readingCount: number;
+  maxReadings: number;
+  isComplete: boolean;
   esp32Status?: { isOnline: boolean };
 }
 
@@ -29,10 +32,12 @@ const BatchSelector = ({
   currentBatch,
   onSelectBatch,
   onCreateNew,
-  onSaveBatch,
   onViewHistory,
   onCloseBatch,
-  isSaving,
+  onGenerateReport,
+  readingCount,
+  maxReadings,
+  isComplete,
   esp32Status,
 }: BatchSelectorProps) => {
   const formatCollectionTime = (datetime: string) => {
@@ -49,6 +54,8 @@ const BatchSelector = ({
       onSelectBatch(batch);
     }
   };
+
+  const progressPercent = (readingCount / maxReadings) * 100;
 
   return (
     <motion.div
@@ -81,11 +88,6 @@ const BatchSelector = ({
                 ))}
               </SelectContent>
             </Select>
-            {batches.length > 0 && (
-              <span className="text-xs text-muted-foreground bg-secondary/50 px-2 py-1 rounded-full">
-                {batches.length} batch{batches.length !== 1 ? "es" : ""}
-              </span>
-            )}
           </div>
 
           {/* Batch Info */}
@@ -112,6 +114,25 @@ const BatchSelector = ({
 
         {/* Quick Actions */}
         <div className="flex items-center gap-2 print:hidden">
+          {/* Progress Indicator */}
+          {currentBatch && (
+            <div className="flex items-center gap-2 mr-2">
+              {isComplete ? (
+                <div className="flex items-center gap-1.5 text-status-good">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span className="text-xs font-semibold">Complete</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 min-w-[140px]">
+                  <Progress value={progressPercent} className="h-2 flex-1" />
+                  <span className="text-xs text-muted-foreground font-mono whitespace-nowrap">
+                    {readingCount}/{maxReadings}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
           <Button
             variant="outline"
             size="sm"
@@ -121,19 +142,16 @@ const BatchSelector = ({
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">New</span>
           </Button>
-          
-          {currentBatch && (
+
+          {isComplete && currentBatch && (
             <Button
               variant="default"
               size="sm"
-              onClick={onSaveBatch}
-              disabled={isSaving}
+              onClick={onGenerateReport}
               className="h-9 rounded-xl gap-2"
             >
-              <Save className="w-4 h-4" />
-              <span className="hidden sm:inline">
-                {isSaving ? "Saving..." : "Save"}
-              </span>
+              <FileText className="w-4 h-4" />
+              <span className="hidden sm:inline">Report</span>
             </Button>
           )}
           

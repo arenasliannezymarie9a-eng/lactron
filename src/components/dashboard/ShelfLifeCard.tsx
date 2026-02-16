@@ -1,43 +1,55 @@
 import { motion } from "framer-motion";
-import { Clock, Activity } from "lucide-react";
+import { Clock, Activity, FileText, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Batch } from "@/lib/api";
-import { format } from "date-fns";
 
 interface ShelfLifeCardProps {
   hours: number;
   status: "good" | "spoiled";
   batch: Batch | null;
   onSimulate: () => void;
+  onGenerateReport: () => void;
   isSimulating?: boolean;
+  isComplete?: boolean;
   hasData?: boolean;
 }
 
-const ShelfLifeCard = ({ hours, status, batch, onSimulate, isSimulating = false, hasData = true }: ShelfLifeCardProps) => {
+const ShelfLifeCard = ({ hours, status, batch, onSimulate, onGenerateReport, isSimulating = false, isComplete = false, hasData = true }: ShelfLifeCardProps) => {
   const safeHours = typeof hours === 'number' && !isNaN(hours) ? hours : 0;
   const isGood = status === "good";
 
-  const tips = isGood
+  const tips = isComplete
     ? {
-        title: "Status: Stable",
-        items: [
-          "Chemical signatures within baseline.",
-          "Maintain storage at 4°C.",
-          "Batch is safe for cold-chain distribution.",
-        ],
+        title: "Analysis Complete",
+        items: isGood
+          ? [
+              "All 30 readings collected successfully.",
+              "Batch classified as GOOD — safe for distribution.",
+              "Generate the full report for documentation.",
+            ]
+          : [
+              "All 30 readings collected successfully.",
+              "Batch classified as SPOILED — quarantine recommended.",
+              "Generate the full report for records.",
+            ],
       }
-    : {
-        title: "Warning: Spoilage Detected",
-        items: [
-          "High ammonia and sulfur markers detected.",
-          "Batch quarantine required immediately.",
-          "Sanitize all contact sensors and silos.",
-        ],
-      };
-
-  const handlePrint = () => {
-    window.print();
-  };
+    : isGood
+      ? {
+          title: "Status: Stable",
+          items: [
+            "Chemical signatures within baseline.",
+            "Maintain storage at 4°C.",
+            "Batch is safe for cold-chain distribution.",
+          ],
+        }
+      : {
+          title: "Warning: Spoilage Detected",
+          items: [
+            "High ammonia and sulfur markers detected.",
+            "Batch quarantine required immediately.",
+            "Sanitize all contact sensors and silos.",
+          ],
+        };
 
   return (
     <motion.div
@@ -63,16 +75,18 @@ const ShelfLifeCard = ({ hours, status, batch, onSimulate, isSimulating = false,
         </motion.div>
       )}
 
-      {/* Batch Info for PDF */}
-      {batch && (
-        <div className="hidden print:block mb-4 p-4 border border-border rounded-xl">
-          <h4 className="font-bold text-sm mb-2">Batch Information</h4>
-          <div className="text-xs space-y-1">
-            <p><span className="text-muted-foreground">Batch ID:</span> {batch.batch_id}</p>
-            <p><span className="text-muted-foreground">Collector:</span> {batch.collector_name}</p>
-            <p><span className="text-muted-foreground">Time of Collection:</span> {format(new Date(batch.collection_datetime), "MMM dd, yyyy 'at' HH:mm")}</p>
-          </div>
-        </div>
+      {/* Complete Banner */}
+      {isComplete && !isSimulating && hasData && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-4 p-3 rounded-xl bg-status-good/10 border border-status-good/30 text-center"
+        >
+          <p className="text-status-good font-semibold text-sm flex items-center justify-center gap-2">
+            <CheckCircle2 className="w-4 h-4" />
+            ANALYSIS COMPLETE
+          </p>
+        </motion.div>
       )}
 
       <div className="text-center mb-4">
@@ -102,16 +116,20 @@ const ShelfLifeCard = ({ hours, status, batch, onSimulate, isSimulating = false,
         <motion.div
           layout
           className={`flex-1 rounded-2xl p-4 text-sm leading-relaxed ${
-            isGood
+            isComplete
               ? "bg-status-good/5 border border-status-good/20"
-              : "bg-status-danger/5 border border-status-danger/20"
+              : isGood
+                ? "bg-status-good/5 border border-status-good/20"
+                : "bg-status-danger/5 border border-status-danger/20"
           }`}
         >
           <motion.p
             key={tips.title}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className={`font-bold mb-2 ${isGood ? "text-status-good" : "text-status-danger"}`}
+            className={`font-bold mb-2 ${
+              isComplete ? "text-status-good" : isGood ? "text-status-good" : "text-status-danger"
+            }`}
           >
             {tips.title}
           </motion.p>
@@ -124,7 +142,9 @@ const ShelfLifeCard = ({ hours, status, batch, onSimulate, isSimulating = false,
                 transition={{ delay: i * 0.1 }}
                 className="flex items-start gap-2"
               >
-                <span className={`mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0 ${isGood ? "bg-status-good" : "bg-status-danger"}`} />
+                <span className={`mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                  isComplete ? "bg-status-good" : isGood ? "bg-status-good" : "bg-status-danger"
+                }`} />
                 {item}
               </motion.li>
             ))}
@@ -141,22 +161,28 @@ const ShelfLifeCard = ({ hours, status, batch, onSimulate, isSimulating = false,
       {/* Action Buttons */}
       {hasData && (
         <div className="flex gap-3 mt-4 print:hidden">
-          <Button
-            variant={isSimulating ? "default" : "outline"}
-            onClick={onSimulate}
-            className={`flex-1 rounded-xl h-11 hover:scale-[1.02] transition-transform ${
-              isSimulating ? "bg-amber-500 hover:bg-amber-600 text-white" : ""
-            }`}
-          >
-            <Activity className="w-4 h-4 mr-2" />
-            {isSimulating ? "Exit Simulation" : "Simulate Event"}
-          </Button>
-          <Button
-            className="flex-1 rounded-xl h-11 hover:scale-[1.02] transition-transform"
-            onClick={handlePrint}
-          >
-            PDF Report
-          </Button>
+          {isComplete ? (
+            <Button
+              onClick={onGenerateReport}
+              className="flex-1 rounded-xl h-11 hover:scale-[1.02] transition-transform"
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              Generate Report
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant={isSimulating ? "default" : "outline"}
+                onClick={onSimulate}
+                className={`flex-1 rounded-xl h-11 hover:scale-[1.02] transition-transform ${
+                  isSimulating ? "bg-amber-500 hover:bg-amber-600 text-white" : ""
+                }`}
+              >
+                <Activity className="w-4 h-4 mr-2" />
+                {isSimulating ? "Exit Simulation" : "Simulate Event"}
+              </Button>
+            </>
+          )}
         </div>
       )}
     </motion.div>
