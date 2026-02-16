@@ -166,6 +166,10 @@ const Dashboard = () => {
   };
 
   const handleSelectBatch = async (batch: Batch) => {
+    setSensorData(null);
+    setSensorHistory([]);
+    setStatus("good");
+    setShelfLife(0);
     setCurrentBatch(batch);
     const response = await esp32API.setActiveBatch(batch.batch_id);
     if (response.success) {
