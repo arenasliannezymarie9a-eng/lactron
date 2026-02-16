@@ -1,120 +1,163 @@
 
 
-# Align Simulation with Real-World Model Parameters
+# Refactor: Days to Hours Shelf Life (Max 72 Hours) + CSV Dataset
 
-## Problem
+## Overview
 
-The current simulation uses arbitrary values that don't match the trained ML model's realistic milk chemistry thresholds:
+Convert the entire shelf life system from **days (0-7)** to **hours (0-72)** across the ML model, Flask server, PHP backend fallback, React UI, and simulation values. Also restructure the training script to generate and consume CSV datasets for proper train/validation/test splitting.
 
-| Sensor | Current "Spoiled" Sim | Model Spoiled Threshold | UI Max Display | Issue |
-|--------|----------------------|------------------------|----------------|-------|
-| Ethanol | 85 ppm | >80 ppm | 100 ppm | Slightly high but acceptable |
-| Ammonia | 70 ppm | >40 ppm | 100 ppm | Too high (training max is 80) |
-| H2S | **95 ppm** | >15 ppm | 50 ppm | **Breaks UI** - exceeds display max |
+## Changes Summary
 
-The H2S value of 95 ppm is completely unrealistic. Real spoiled milk produces 15-30 ppm H2S based on dairy science research.
+### 1. `backend/python/train_model.py` - CSV Dataset + Hours Output
 
-## Model Thresholds Reference
+- Change shelf life target from **0-7 days** to **0-72 hours**
+- Generate training data as a CSV file (`dataset.csv`) with columns: `ethanol, ammonia, h2s, shelf_life_hours`
+- Load data from CSV, split into train/validation/test (70/15/15), and save each split as separate CSV files (`train.csv`, `val.csv`, `test.csv`)
+- Train the model on the train set, evaluate on validation and test sets
+- Print MAE/R2 for all three splits
+- Model file stays `shelf_life_model.pkl`
+- Update `norm_params.pkl` to include a `unit: 'hours'` field
+- Test predictions print hours instead of days
 
-From `train_model.py`:
+### 2. `backend/python/app.py` - Return Hours
 
-```text
-Sensor     Fresh (<)   Warning     Spoiled (>)   Training Max
----------  ----------  ----------  ------------  ------------
-Ethanol    20 ppm      20-50 ppm   80 ppm        150 ppm
-Ammonia    10 ppm      10-25 ppm   40 ppm        80 ppm
-H2S        2 ppm       2-8 ppm     15 ppm        30 ppm
+- Update the `predict_shelf_life` function: shelf life output is now in hours (0-72) instead of days (0-7)
+- Update fallback formula: `quality_score * 72` instead of `quality_score * 7`
+- Update `/test` endpoint expected values to reflect hours (e.g., "fresh (~45-50 hours)")
+- Update `/health` endpoint to include `unit: 'hours'`
+
+### 3. `src/pages/Dashboard.tsx` - UI Display in Hours
+
+- Rename the `shelfLife` state semantics from days to hours (no variable rename needed, just the meaning changes)
+- Update simulation values:
+  - Fresh: `setShelfLife(45.5)` (was 6.5 days)
+  - Spoiled: `setShelfLife(0)` (unchanged)
+- Update the footer text from "TensorFlow Regression Model" to "Scikit-learn Regression Model"
+
+### 4. `src/components/dashboard/ShelfLifeCard.tsx` - Display Hours
+
+- Change the label from `"Days"` to `"Hours"`
+- Rename prop from `days` to `hours` (and internal variable `safeDays` to `safeHours`)
+- All display logic stays the same (`.toFixed(1)` formatting)
+
+### 5. `src/components/dashboard/BatchHistoryModal.tsx` - Display Hours
+
+- Change shelf life label from `"Days"` to `"Hours"` in the batch detail view (line 269)
+
+### 6. `backend/php/api/sensor_data.php` - Update Fallback
+
+- Update the PHP fallback prediction thresholds to match the model (Ethanol >80, Ammonia >40, H2S >15)
+- Fallback shelf life calculation: return hours (0-72) instead of days (0-7)
+
+## Detailed Technical Changes
+
+### A. `backend/python/train_model.py`
+
+```python
+# Key changes:
+# 1. Generate dataset CSV
+import pandas as pd
+
+# After generating ethanol, ammonia, h2s arrays:
+# shelf_life = quality_scores * 72 + noise  (was * 7)
+# np.clip(..., 0, 72)  (was 0, 7)
+
+# Save full dataset to CSV
+df = pd.DataFrame({
+    'ethanol': ethanol,
+    'ammonia': ammonia,
+    'h2s': h2s,
+    'shelf_life_hours': shelf_life
+})
+df.to_csv('dataset.csv', index=False)
+
+# Split: 70% train, 15% val, 15% test
+from sklearn.model_selection import train_test_split
+train_df, temp_df = train_test_split(df, test_size=0.3, random_state=42)
+val_df, test_df = train_test_split(temp_df, test_size=0.5, random_state=42)
+
+train_df.to_csv('train.csv', index=False)
+val_df.to_csv('val.csv', index=False)
+test_df.to_csv('test.csv', index=False)
+
+# Normalize and train on train set only
+# Evaluate on val and test sets separately
+# Print results for all three
 ```
 
-## Solution
+Test predictions output example:
+```
+Fresh milk: Ethanol=10, NH3=3, H2S=0.5 -> 46.20 hours
+Spoiled:    Ethanol=90, NH3=45, H2S=18 -> 1.40 hours
+```
 
-Update the simulation values to use realistic readings that match the ML model's training parameters:
+### B. `backend/python/app.py`
 
-### Spoiled Milk Simulation (Realistic)
-Values that clearly indicate spoilage but stay within real-world ranges:
-- Ethanol: **95 ppm** (above 80 threshold, within training range)
-- Ammonia: **52 ppm** (above 40 threshold, realistic bacterial activity)
-- H2S: **22 ppm** (above 15 threshold, within 30 ppm training max)
-- Shelf Life: **0** days (model returns 0 for spoiled)
+```python
+# Fallback formula change:
+shelf_life = max(0, round(quality_score * 72, 2))  # was * 7
 
-### Fresh Milk Simulation (Realistic)
-Values that represent ideal fresh milk:
-- Ethanol: **12 ppm** (well below 20 fresh_max)
-- Ammonia: **5 ppm** (well below 10 fresh_max)
-- H2S: **0.8 ppm** (well below 2 fresh_max)
-- Shelf Life: **6.5** days (realistic high-quality prediction)
+# /test endpoint expected values:
+{'ethanol': 10, 'ammonia': 3, 'h2s': 0.5, 'expected': 'fresh (~45-50 hours)'}
+```
 
-## Code Changes
-
-### File: `src/pages/Dashboard.tsx`
-
-Update the `simulateEvent` function:
+### C. `src/pages/Dashboard.tsx`
 
 ```typescript
-const simulateEvent = () => {
-  if (isSimulating) {
-    // Exit simulation - reload real data
-    setIsSimulating(false);
-    loadSensorHistory();
-  } else {
-    // Enter simulation mode with realistic values based on ML model thresholds
-    setIsSimulating(true);
-    if (status === "good") {
-      // Simulate SPOILED milk - values above spoilage thresholds
-      // Model thresholds: Ethanol >80, Ammonia >40, H2S >15
-      setStatus("spoiled");
-      setSensorData({ 
-        ethanol: 95,   // Above 80 ppm threshold
-        ammonia: 52,   // Above 40 ppm threshold  
-        h2s: 22        // Above 15 ppm threshold (within 30 max)
-      });
-      setShelfLife(0);
-    } else {
-      // Simulate FRESH milk - values in fresh range
-      // Fresh ranges: Ethanol <20, Ammonia <10, H2S <2
-      setStatus("good");
-      setSensorData({ 
-        ethanol: 12,   // Well below 20 ppm fresh_max
-        ammonia: 5,    // Well below 10 ppm fresh_max
-        h2s: 0.8       // Well below 2 ppm fresh_max
-      });
-      setShelfLife(6.5);
-    }
-  }
-};
+// Simulation values updated for hours:
+// Spoiled simulation:
+setShelfLife(0);  // unchanged
+
+// Fresh simulation:
+setShelfLife(45.5);  // was 6.5 days, now ~45.5 hours
 ```
 
-## Why These Values?
+### D. `src/components/dashboard/ShelfLifeCard.tsx`
 
-### Spoiled Values (95, 52, 22)
-- **Ethanol 95 ppm**: Fermentation produces ethanol; 95 ppm indicates active bacterial metabolism
-- **Ammonia 52 ppm**: Protein breakdown releases ammonia; 52 ppm shows significant spoilage
-- **H2S 22 ppm**: Sulfur-producing bacteria; 22 ppm is clear spoilage but realistic (not exceeding sensor range)
+```typescript
+// Props: days -> hours
+interface ShelfLifeCardProps {
+  hours: number;  // was: days
+  // ... rest unchanged
+}
 
-### Fresh Values (12, 5, 0.8)
-- **Ethanol 12 ppm**: Fresh milk has minimal volatile compounds
-- **Ammonia 5 ppm**: Very low protein degradation
-- **H2S 0.8 ppm**: Negligible bacterial activity
+// Display:
+{safeHours.toFixed(1)}
+<span>Hours</span>  // was: Days
+```
 
-## Visual Impact
+### E. `src/components/dashboard/BatchHistoryModal.tsx`
 
-After this change, the UI gauges will display proportionally correct values:
+```typescript
+// Line 269:
+{batch.shelf_life} <span>Hours</span>  // was: Days
+```
 
-```text
-FRESH SIMULATION:
-Ethanol:  [====                    ] 12/100 ppm (12%)
-Ammonia:  [===                     ] 5/100 ppm (5%)
-H2S:      [=                       ] 0.8/50 ppm (1.6%)
+### F. `backend/php/api/sensor_data.php`
 
-SPOILED SIMULATION:
-Ethanol:  [======================  ] 95/100 ppm (95%)
-Ammonia:  [============            ] 52/100 ppm (52%)
-H2S:      [======================  ] 22/50 ppm (44%)
+```php
+// Line 83-84 fallback:
+$isSpoiled = $ethanol > 80 || $ammonia > 40 || $h2s > 15;
+return ['shelfLife' => $isSpoiled ? 0 : rand(14, 50), ...];  // hours
 ```
 
 ## Files to Modify
 
-| File | Changes |
+| File | Summary |
 |------|---------|
-| `src/pages/Dashboard.tsx` | Update simulation values in `simulateEvent` function (lines 118-126) |
+| `backend/python/train_model.py` | CSV output, 0-72 hours range, train/val/test split |
+| `backend/python/app.py` | Return hours, update fallback and test endpoint |
+| `src/pages/Dashboard.tsx` | Update simulation values for hours, fix footer text |
+| `src/components/dashboard/ShelfLifeCard.tsx` | Rename days->hours, change label |
+| `src/components/dashboard/BatchHistoryModal.tsx` | Change "Days" to "Hours" |
+| `backend/php/api/sensor_data.php` | Update fallback thresholds and return hours |
+
+## Post-Implementation Steps
+
+1. Install pandas in Python env: `pip install pandas`
+2. Retrain model: `cd backend/python && python train_model.py`
+3. Verify CSV files generated: `dataset.csv`, `train.csv`, `val.csv`, `test.csv`
+4. Restart Flask: `python app.py`
+5. Test: `http://localhost:5000/test` - verify hours output
+6. Dashboard should now show shelf life in hours (e.g., "45.5 Hours")
 
