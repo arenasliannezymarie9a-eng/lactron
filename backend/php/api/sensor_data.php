@@ -22,8 +22,11 @@ if ($method === 'GET') {
         echo json_encode(['success' => true, 'data' => $data ?: null]);
     } else if ($action === 'history') {
         $limit = intval($_GET['limit'] ?? 100);
-        $stmt = $pdo->prepare('SELECT ethanol, ammonia, h2s, status, predicted_shelf_life, created_at 
-                               FROM sensor_readings WHERE batch_id = ? ORDER BY created_at DESC LIMIT ?');
+        $stmt = $pdo->prepare('SELECT sr.ethanol, sr.ammonia, sr.h2s, sr.status, sr.predicted_shelf_life, sr.created_at 
+                               FROM sensor_readings sr
+                               INNER JOIN batches b ON sr.batch_id = b.batch_id
+                               WHERE sr.batch_id = ? AND sr.created_at >= b.created_at
+                               ORDER BY sr.created_at DESC LIMIT ?');
         $stmt->execute([$batchId, $limit]);
         echo json_encode(['success' => true, 'data' => $stmt->fetchAll()]);
     }
@@ -75,7 +78,17 @@ if ($method === 'GET') {
         exit;
     }
     
-    // Normal batch - Call Flask ML server for prediction
+    // Normal batch - Check 30-reading cap
+    $countStmt = $pdo->prepare('SELECT COUNT(*) as cnt FROM sensor_readings WHERE batch_id = ?');
+    $countStmt->execute([$batchId]);
+    $count = $countStmt->fetch()['cnt'];
+    
+    if ($count >= 30) {
+        echo json_encode(['success' => false, 'error' => 'Batch reading limit reached (30/30)', 'limit_reached' => true]);
+        exit;
+    }
+    
+    // Call Flask ML server for prediction
     $prediction = callMlServer($ethanol, $ammonia, $h2s);
     
     $stmt = $pdo->prepare('INSERT INTO sensor_readings (batch_id, ethanol, ammonia, h2s, status, predicted_shelf_life) VALUES (?, ?, ?, ?, ?, ?)');

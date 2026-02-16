@@ -29,8 +29,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         case 'list':
             $stmt = $pdo->prepare('
                 SELECT b.*, 
-                    (SELECT COUNT(*) FROM sensor_readings sr WHERE sr.batch_id = b.batch_id) as reading_count,
-                    (SELECT predicted_shelf_life FROM sensor_readings sr WHERE sr.batch_id = b.batch_id ORDER BY created_at DESC LIMIT 1) as latest_shelf_life
+                    (SELECT COUNT(*) FROM sensor_readings sr WHERE sr.batch_id = b.batch_id AND sr.created_at >= b.created_at) as reading_count,
+                    (SELECT predicted_shelf_life FROM sensor_readings sr WHERE sr.batch_id = b.batch_id AND sr.created_at >= b.created_at ORDER BY sr.created_at DESC LIMIT 1) as latest_shelf_life
                 FROM batches b 
                 WHERE b.user_id = ? AND b.batch_id NOT LIKE \'DATASET-%\'
                 ORDER BY b.created_at DESC
