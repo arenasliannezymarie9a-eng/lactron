@@ -1,186 +1,150 @@
 
 
-# ESP32 Status Detection, Warm-Up Timer, and Dashboard Placeholders
+# Refine Dataset Gathering: Fix Remaining Time, Optional Warm-Up
 
-## Overview
+## Problems Identified
 
-Three interconnected features:
+1. **Remaining shelf life not decreasing / showing 80h instead of 72h**: The PHP `computeRemainingShelfLife()` function uses `time()` (server UTC) vs `strtotime($session['started_at'])` which comes from MySQL `CURRENT_TIMESTAMP`. If the MySQL timezone and PHP timezone differ, `strtotime()` can misinterpret the timestamp, causing a negative elapsed time that inflates the result above the initial value. The fix is to use MySQL's own `TIMESTAMPDIFF` to compute elapsed time server-side (consistent timezone), and also clamp the result to never exceed `initial_shelf_life`.
 
-1. **ESP32 Online/Offline Status Indicator** - Show a live status badge on the Welcome State ("Get Started" area) and the BatchSelector strip when a batch is active, plus in the Dataset Gathering modal. Polls the ESP32 `/status` endpoint every 10 seconds.
+2. **Warm-up overlay is always mandatory**: Users want the option to skip or disable it. Add a toggle switch to the dashboard (stored in localStorage) that controls whether the warm-up overlay appears and whether the ESP32 gates data during warm-up. The ESP32 warm-up gate stays in firmware (hardware calibration is real), but the UI overlay becomes optional.
 
-2. **Sensor Warm-Up Countdown** - When the ESP32 transitions from offline to online, show a 2-minute warm-up overlay/dialog. During warm-up, sensor data is not inserted into the database. The warm-up applies system-wide (Welcome State, active batch dashboard, dataset gathering).
+## Changes
 
-3. **Dashboard Placeholders** - When a batch is selected but has no sensor readings yet, show `--` placeholders instead of default values for classification grade, shelf life, and sensor readings.
+### 1. Fix Remaining Shelf Life (PHP backend)
 
----
+**File: `backend/php/api/dataset.php`**
 
-## 1. ESP32 Status Polling
+Replace the `computeRemainingShelfLife()` function to use MySQL `TIMESTAMPDIFF` instead of PHP `time()` vs `strtotime()`. This eliminates timezone mismatch issues.
 
-### `src/hooks/useEsp32Status.ts` (New File)
+Alternatively, fix the PHP function by:
+- Using `UNIX_TIMESTAMP(started_at)` from MySQL instead of `strtotime()`
+- Clamping result: `min($initialHours, max(0, $remainingHours))`
 
-A custom hook that polls `esp32API.getStatus()` every 10 seconds and tracks:
-- `isOnline: boolean`
-- `isWarmingUp: boolean` (true for 120 seconds after offline-to-online transition)
-- `warmUpRemaining: number` (seconds left in warm-up countdown)
+The simpler approach is to clamp in PHP and normalize timezone handling:
 
-```text
-Hook logic:
-- Poll esp32API.getStatus() every 10s
-- Track previous online state
-- When transitions from offline -> online:
-  - Set isWarmingUp = true
-  - Start a 120-second countdown timer (1s interval)
-  - When countdown hits 0, set isWarmingUp = false
-- Expose: { isOnline, isWarmingUp, warmUpRemaining }
+```php
+function computeRemainingShelfLife($session) {
+    $initialHours = floatval($session['initial_shelf_life']);
+    $startedAt = strtotime($session['started_at'] . ' UTC'); // force UTC interpretation
+    $totalPaused = intval($session['total_paused_seconds']);
+
+    if ($session['session_state'] === 'stopped' && $session['stopped_at']) {
+        $endTime = strtotime($session['stopped_at'] . ' UTC');
+    } else if ($session['session_state'] === 'paused' && $session['last_paused_at']) {
+        $endTime = strtotime($session['last_paused_at'] . ' UTC');
+    } else {
+        $endTime = time(); // UTC
+    }
+
+    $effectiveElapsed = max(0, ($endTime - $startedAt) - $totalPaused);
+    $remainingHours = $initialHours - ($effectiveElapsed / 3600);
+    return min($initialHours, max(0, round($remainingHours, 2)));
+}
 ```
 
-### Where the status indicator appears:
+The key fixes:
+- Append `' UTC'` to timestamps from MySQL so `strtotime()` interprets them consistently
+- Clamp `effectiveElapsed` to never be negative
+- Clamp result to never exceed `initial_shelf_life`
 
-**A. `WelcomeState.tsx`** - Below the "Get Started" heading, show a small badge:
-- Online: green dot + "ESP32 Online"
-- Offline: red dot + "ESP32 Offline"
+### 2. Frontend: Live countdown for remaining time
 
-**B. `BatchSelector.tsx`** - Add a small status dot/badge next to the batch count or at the end of the info row:
-- Online: green dot
-- Offline: red dot + "ESP32 Offline" text
+**File: `src/components/dashboard/DatasetGatheringModal.tsx`**
 
-**C. `DatasetGatheringModal.tsx`** - Show ESP32 status in the active session status bar.
+The remaining time currently only updates when the API is polled (every 5 seconds). Add a local 1-second countdown timer that decrements the displayed remaining shelf life between polls, so the user sees it ticking down in real-time.
 
----
+Changes:
+- Add a `displayRemaining` state initialized from `activeSession.remaining_shelf_life`
+- Use a `useEffect` with a 1-second interval that decrements `displayRemaining` by `1/3600` (one second in hours) when session is active
+- Sync `displayRemaining` from the API value whenever `activeSession` updates from a poll
+- Display `displayRemaining` instead of `activeSession.remaining_shelf_life`
 
-## 2. Warm-Up Overlay
+### 3. Optional Warm-Up Toggle
 
-### `src/components/dashboard/WarmUpOverlay.tsx` (New File)
+**File: `src/pages/Dashboard.tsx`**
 
-A modal/dialog that appears when `isWarmingUp` is true. Shows:
-- A circular countdown timer (120 seconds down to 0)
-- "Sensor Warm-Up in Progress" title
-- "The sensors require a 2-minute calibration period before readings are accurate."
-- Countdown in MM:SS format
-- Auto-dismisses when countdown reaches 0
+- Add a `warmUpEnabled` state initialized from `localStorage.getItem('lactron_warmup_enabled')` (default: `true`)
+- Pass it to `WarmUpOverlay`: only show when `warmUpEnabled && esp32Status.isWarmingUp`
+- Pass a toggle callback to the settings area
 
-This overlay is rendered at the Dashboard page level (in `Dashboard.tsx`), so it covers the entire dashboard regardless of which state (welcome/active batch) is shown.
+**File: `src/components/dashboard/WarmUpOverlay.tsx`**
 
-### ESP32 Code Change: `backend/esp32/lactron_esp32.ino`
+- No changes needed -- it's already controlled by `isOpen` prop
 
-Add a `warm_up` field to the `/status` endpoint response so the frontend knows the ESP32's uptime. The existing `uptime_ms` field already provides this. No ESP32 code changes needed -- the frontend uses `uptime_ms` only as supplementary info; the warm-up logic is entirely frontend-driven based on offline-to-online transitions.
+**File: `src/components/dashboard/DashboardNav.tsx` / `ProfileDropdown.tsx`**
 
-However, to prevent data insertion during warm-up, we need to gate data sending on the frontend side. Since the ESP32 sends data directly to the PHP backend (not through the frontend), the warm-up gate needs to be in the ESP32 itself:
+- Add a "Sensor Warm-Up" toggle switch in the profile dropdown menu (between Dataset Gathering and Logout)
+- When toggled off, the warm-up overlay won't appear (localStorage persists the preference)
+- Show a small label: "Sensor Warm-Up: On/Off"
 
-**ESP32 Change**: Add a 120-second startup delay before sending data to the backend. After WiFi connects (in `setup()`), record `startupTime = millis()`. In `loop()`, skip `sendToBackend()` if `millis() - startupTime < 120000`. The `/status` endpoint will include a `warming_up` boolean field.
+### 4. UI Refinements for Dataset Gathering Modal
 
-```text
-New global:
-  unsigned long startupTime = 0;
-  bool warmingUp = true;
+**File: `src/components/dashboard/DatasetGatheringModal.tsx`**
 
-In setup() after connectWiFi():
-  startupTime = millis();
-
-In loop() before sendToBackend():
-  if (millis() - startupTime < 120000) {
-    warmingUp = true;
-    // skip sendToBackend
-  } else {
-    warmingUp = false;
-  }
-
-In handleStatus():
-  response["warming_up"] = warmingUp;
-  response["warmup_remaining_ms"] = warmingUp ? max(0UL, 120000 - (millis() - startupTime)) : 0;
-```
-
-### Frontend Warm-Up Detection
-
-The `useEsp32Status` hook will read the `warming_up` field from the ESP32 status response. If the ESP32 reports `warming_up: true`, the hook sets `isWarmingUp = true` and computes `warmUpRemaining` from `warmup_remaining_ms`. This is more accurate than frontend-only tracking since the ESP32 itself gates data.
-
----
-
-## 3. Dashboard Placeholders for Empty Batches
-
-### `StatusHero.tsx`
-
-- Accept an optional `hasData: boolean` prop
-- When `hasData` is false, show a neutral/gray state:
-  - No icon (or a neutral circle icon)
-  - Display `"--"` instead of "GRADE: GOOD" or "GRADE: SPOILED"
-  - Use muted colors (no green/red)
-
-### `ShelfLifeCard.tsx`
-
-- Accept an optional `hasData: boolean` prop
-- When `hasData` is false:
-  - Display `"--"` instead of the numeric shelf life value
-  - Hide the tips box or show a "Waiting for sensor data..." message
-  - Hide simulation buttons
-
-### `MolecularFingerprint.tsx`
-
-- Already handles `data: null` by showing "No sensor readings yet for this batch" -- this is correct behavior, no changes needed.
-
-### `Dashboard.tsx`
-
-- Derive `hasData = sensorData !== null` and pass it to `StatusHero` and `ShelfLifeCard`
-- When `sensorData` is null (no readings), pass `hasData={false}` and placeholder values
-
----
+Minor UI polish:
+- Show remaining time with more precision (e.g., `71h 58m` format instead of just `72.0h`) for better feedback
+- Add a subtle pulsing animation to the "ACTIVE" badge
+- Show "Awaiting sensor data..." placeholder when `latestSensor` is null and session is active
 
 ## Files Summary
 
 | File | Action | Description |
 |------|--------|-------------|
-| `src/hooks/useEsp32Status.ts` | Create | Custom hook for ESP32 polling + warm-up state |
-| `src/components/dashboard/WarmUpOverlay.tsx` | Create | 2-minute countdown overlay dialog |
-| `src/pages/Dashboard.tsx` | Modify | Use hook, render overlay, pass `hasData` prop |
-| `src/components/dashboard/WelcomeState.tsx` | Modify | Add ESP32 status badge |
-| `src/components/dashboard/BatchSelector.tsx` | Modify | Add ESP32 status indicator |
-| `src/components/dashboard/DatasetGatheringModal.tsx` | Modify | Show ESP32 status in session view |
-| `src/components/dashboard/StatusHero.tsx` | Modify | Support `hasData=false` with `--` placeholder |
-| `src/components/dashboard/ShelfLifeCard.tsx` | Modify | Support `hasData=false` with `--` placeholder |
-| `backend/esp32/lactron_esp32.ino` | Modify | Add 120s warm-up gate + status fields |
-| `src/lib/api.ts` | Modify | Update ESP32 status response type to include `warming_up` and `warmup_remaining_ms` |
+| `backend/php/api/dataset.php` | Modify | Fix timezone handling in `computeRemainingShelfLife()`, clamp result |
+| `src/components/dashboard/DatasetGatheringModal.tsx` | Modify | Add local 1-second countdown, format as hours+minutes, UI polish |
+| `src/pages/Dashboard.tsx` | Modify | Add `warmUpEnabled` state from localStorage, conditionally show overlay |
+| `src/components/dashboard/ProfileDropdown.tsx` | Modify | Add warm-up on/off toggle switch |
+| `src/components/dashboard/DashboardNav.tsx` | Modify | Pass warm-up toggle props through |
 
 ## Technical Details
 
-### ESP32 Status Response (updated)
+### Remaining Time Fix
 
-```json
-{
-  "success": true,
-  "ip": "192.168.8.150",
-  "batch_id": "BATCH-001",
-  "connected": true,
-  "data_received": true,
-  "uptime_ms": 45000,
-  "warming_up": true,
-  "warmup_remaining_ms": 75000,
-  "sensors": { "ethanol": 12.5, "ammonia": 5.2, "h2s": 0.8 }
-}
-```
+The root cause of the 80h bug is likely PHP's `strtotime()` interpreting a MySQL timestamp as local time when `time()` returns UTC (or vice versa). An 8-hour offset (e.g., UTC+8 timezone) would explain `72 + 8 = 80`. The fix normalizes both sides to UTC.
 
-### useEsp32Status Hook Interface
+### Local Countdown Logic
 
 ```typescript
-interface Esp32Status {
-  isOnline: boolean;
-  isWarmingUp: boolean;
-  warmUpRemaining: number; // seconds
-}
+// In DatasetGatheringModal
+const [displayRemaining, setDisplayRemaining] = useState(0);
+
+// Sync from API
+useEffect(() => {
+  if (activeSession?.remaining_shelf_life !== undefined) {
+    setDisplayRemaining(Number(activeSession.remaining_shelf_life));
+  }
+}, [activeSession?.remaining_shelf_life]);
+
+// Local 1-second tick
+useEffect(() => {
+  if (!activeSession || activeSession.session_state !== 'active') return;
+  const interval = setInterval(() => {
+    setDisplayRemaining(prev => Math.max(0, prev - 1/3600));
+  }, 1000);
+  return () => clearInterval(interval);
+}, [activeSession?.session_state]);
 ```
 
-### Warm-Up Overlay Behavior
+### Warm-Up Toggle Storage
 
-- Appears as a centered dialog (not blocking the entire screen, but clearly visible)
-- Shows a circular progress ring counting down from 2:00 to 0:00
-- Auto-dismisses when warm-up completes
-- Cannot be manually dismissed (sensors need calibration time)
-- If ESP32 goes offline again during warm-up and comes back, the ESP32 restarts its own 120s timer
+```typescript
+// In Dashboard.tsx
+const [warmUpEnabled, setWarmUpEnabled] = useState(() => {
+  return localStorage.getItem('lactron_warmup_enabled') !== 'false';
+});
 
-### Placeholder States
+const toggleWarmUp = () => {
+  setWarmUpEnabled(prev => {
+    const next = !prev;
+    localStorage.setItem('lactron_warmup_enabled', String(next));
+    return next;
+  });
+};
 
-When `hasData` is false:
-
-- **StatusHero**: Gray border, no glow, muted icon, text shows `"--"` in large font
-- **ShelfLifeCard**: Shows `"--"` instead of `"0.0"`, tips section replaced with "Awaiting first sensor reading..."
-- **Grade in Dashboard**: The `grade` variable becomes `"--"` when no data
+// In JSX
+<WarmUpOverlay
+  isOpen={warmUpEnabled && esp32Status.isWarmingUp}
+  remaining={esp32Status.warmUpRemaining}
+/>
+```
 
