@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                     (SELECT COUNT(*) FROM sensor_readings sr WHERE sr.batch_id = b.batch_id) as reading_count,
                     (SELECT predicted_shelf_life FROM sensor_readings sr WHERE sr.batch_id = b.batch_id ORDER BY created_at DESC LIMIT 1) as latest_shelf_life
                 FROM batches b 
-                WHERE b.user_id = ?
+                WHERE b.user_id = ? AND b.batch_id NOT LIKE \'DATASET-%\'
                 ORDER BY b.created_at DESC
             ');
             $stmt->execute([$userId]);

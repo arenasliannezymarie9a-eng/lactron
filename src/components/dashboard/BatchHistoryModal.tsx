@@ -4,6 +4,7 @@ import { X, Search, FileText, Clock, User, Hash, Beaker, Timer } from "lucide-re
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { historyAPI, BatchHistory } from "@/lib/api";
+import { generateHistoryReport } from "@/lib/generateReport";
 import { format } from "date-fns";
 
 interface BatchHistoryModalProps {
@@ -49,8 +50,8 @@ const BatchHistoryModal = ({ isOpen, onClose }: BatchHistoryModalProps) => {
     setIsLoading(false);
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = (batch: BatchHistory) => {
+    generateHistoryReport(batch);
   };
 
   const formatDateTime = (datetime: string) => {
@@ -109,7 +110,7 @@ const BatchHistoryModal = ({ isOpen, onClose }: BatchHistoryModalProps) => {
               <BatchDetailView
                 batch={selectedBatch}
                 onBack={() => setSelectedBatch(null)}
-                onPrint={handlePrint}
+                onPrint={() => handlePrint(selectedBatch)}
               />
             ) : (
               <motion.div
@@ -195,17 +196,12 @@ const BatchDetailView = ({ batch, onBack, onPrint }: BatchDetailViewProps) => {
       exit={{ opacity: 0, x: 20 }}
       className="h-full overflow-y-auto pr-2"
     >
-      {/* Back button */}
-      <Button
-        variant="ghost"
-        onClick={onBack}
-        className="mb-4 -ml-2 text-sm"
-      >
+      <Button variant="ghost" onClick={onBack} className="mb-4 -ml-2 text-sm">
         ← Back to list
       </Button>
 
       {/* Batch Info Card */}
-      <div className="print:block p-5 rounded-xl bg-secondary/30 border border-border/30 mb-4">
+      <div className="p-5 rounded-xl bg-secondary/30 border border-border/30 mb-4">
         <h3 className="font-bold text-lg mb-4 text-primary">Batch Information</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div className="flex items-center gap-2">
@@ -252,11 +248,7 @@ const BatchDetailView = ({ batch, onBack, onPrint }: BatchDetailViewProps) => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div className="p-5 rounded-xl bg-secondary/30 border border-border/30 text-center">
           <div className="text-xs text-muted-foreground uppercase mb-2">Grade</div>
-          <div
-            className={`text-2xl font-extrabold ${
-              batch.grade === "GOOD" ? "text-status-good" : "text-status-danger"
-            }`}
-          >
+          <div className={`text-2xl font-extrabold ${batch.grade === "GOOD" ? "text-status-good" : "text-status-danger"}`}>
             {batch.grade}
           </div>
         </div>
@@ -277,10 +269,10 @@ const BatchDetailView = ({ batch, onBack, onPrint }: BatchDetailViewProps) => {
       </div>
 
       {/* Print Button */}
-      <div className="flex justify-center print:hidden">
+      <div className="flex justify-center">
         <Button onClick={onPrint} className="rounded-xl">
           <FileText className="w-4 h-4 mr-2" />
-          Print to PDF
+          Generate PDF Report
         </Button>
       </div>
     </motion.div>
