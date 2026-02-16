@@ -13,7 +13,9 @@ import ShelfLifeCard from "@/components/dashboard/ShelfLifeCard";
 import CreateBatchModal from "@/components/dashboard/CreateBatchModal";
 import BatchHistoryModal from "@/components/dashboard/BatchHistoryModal";
 import DatasetGatheringModal from "@/components/dashboard/DatasetGatheringModal";
+import WarmUpOverlay from "@/components/dashboard/WarmUpOverlay";
 import { Skeleton } from "@/components/ui/skeleton";
+import useEsp32Status from "@/hooks/useEsp32Status";
 import { authAPI, batchAPI, sensorAPI, historyAPI, esp32API, Batch, SensorReading } from "@/lib/api";
 
 type MilkStatus = "good" | "spoiled";
@@ -28,7 +30,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [isDark, setIsDark] = useState(false);
   const [status, setStatus] = useState<MilkStatus>("good");
-const [sensorData, setSensorData] = useState<SensorData | null>(null);
+  const [sensorData, setSensorData] = useState<SensorData | null>(null);
   const [shelfLife, setShelfLife] = useState(4.8);
   const [sensorHistory, setSensorHistory] = useState<SensorReading[]>([]);
   const [currentBatch, setCurrentBatch] = useState<Batch | null>(null);
@@ -40,6 +42,9 @@ const [sensorData, setSensorData] = useState<SensorData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [isSimulating, setIsSimulating] = useState(false);
+
+  const esp32Status = useEsp32Status();
+  const hasData = sensorData !== null;
 
   useEffect(() => {
     if (isDark) {
@@ -209,7 +214,7 @@ const [sensorData, setSensorData] = useState<SensorData | null>(null);
     );
   }
 
-  const grade = status === "good" ? "GRADE: GOOD" : "GRADE: SPOILED";
+  const grade = hasData ? (status === "good" ? "GRADE: GOOD" : "GRADE: SPOILED") : "--";
 
   return (
     <>
@@ -242,6 +247,7 @@ const [sensorData, setSensorData] = useState<SensorData | null>(null);
                 onCreateBatch={() => setIsModalOpen(true)}
                 onSelectBatch={handleSelectBatch}
                 batches={batches}
+                esp32Status={esp32Status}
               />
             ) : (
               <motion.div
@@ -259,6 +265,7 @@ const [sensorData, setSensorData] = useState<SensorData | null>(null);
                   onViewHistory={() => setIsHistoryModalOpen(true)}
                   onCloseBatch={handleCloseBatch}
                   isSaving={isSavingBatch}
+                  esp32Status={esp32Status}
                 />
                 
                 <motion.div
@@ -267,7 +274,7 @@ const [sensorData, setSensorData] = useState<SensorData | null>(null);
                   transition={{ delay: 0.1 }}
                   className="mb-5"
                 >
-                  <StatusHero status={status} grade={grade} />
+                  <StatusHero status={status} grade={grade} hasData={hasData} />
                 </motion.div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
@@ -281,6 +288,7 @@ const [sensorData, setSensorData] = useState<SensorData | null>(null);
                       batch={currentBatch}
                       onSimulate={simulateEvent}
                       isSimulating={isSimulating}
+                      hasData={hasData}
                     />
                   </div>
                 </div>
@@ -316,6 +324,11 @@ const [sensorData, setSensorData] = useState<SensorData | null>(null);
       <DatasetGatheringModal
         isOpen={isDatasetModalOpen}
         onClose={() => setIsDatasetModalOpen(false)}
+      />
+
+      <WarmUpOverlay
+        isOpen={esp32Status.isWarmingUp}
+        remaining={esp32Status.warmUpRemaining}
       />
     </>
   );

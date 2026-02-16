@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Hash, User, Clock, Plus, Save, History, X } from "lucide-react";
 import { format } from "date-fns";
+import Esp32StatusBadge from "./Esp32StatusBadge";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -20,6 +21,7 @@ interface BatchSelectorProps {
   onViewHistory: () => void;
   onCloseBatch: () => void;
   isSaving: boolean;
+  esp32Status?: { isOnline: boolean };
 }
 
 const BatchSelector = ({
@@ -31,6 +33,7 @@ const BatchSelector = ({
   onViewHistory,
   onCloseBatch,
   isSaving,
+  esp32Status,
 }: BatchSelectorProps) => {
   const formatCollectionTime = (datetime: string) => {
     try {
@@ -99,6 +102,9 @@ const BatchSelector = ({
                 <span className="font-medium font-mono text-xs">
                   {formatCollectionTime(currentBatch.collection_datetime)}
                 </span>
+              </div>
+              <div className="hidden sm:flex">
+                <Esp32StatusBadge isOnline={esp32Status?.isOnline ?? false} compact />
               </div>
             </>
           )}

@@ -69,6 +69,10 @@ unsigned long lastReceiveTime = 0;
 unsigned long lastBatchCheck = 0;
 bool dataReceived = false;
 
+// Warm-up gate (120 seconds after boot)
+unsigned long startupTime = 0;
+bool warmingUp = true;
+
 // Status LED (optional - use built-in LED)
 #define STATUS_LED 2
 
@@ -91,13 +95,16 @@ void setup() {
   // Connect to WiFi with static IP
   connectWiFi();
   
+  // Record startup time for warm-up gate
+  startupTime = millis();
+  
   // Setup HTTP server endpoints
   setupHttpServer();
   
   // Fetch active batch from server (fallback)
   fetchActiveBatch();
   
-  Serial.println("Setup complete. Waiting for Arduino data...");
+  Serial.println("Setup complete. Warming up sensors for 120 seconds...");
   Serial.print("HTTP Server running at: http://");
   Serial.println(WiFi.localIP());
 }
@@ -109,12 +116,20 @@ void loop() {
   // Handle incoming HTTP requests from frontend
   server.handleClient();
   
+  // Update warm-up state
+  if (warmingUp && (millis() - startupTime >= 120000)) {
+    warmingUp = false;
+    Serial.println("Warm-up complete. Sensors ready.");
+  }
+
   // Read data from Arduino via UART
   readArduinoData();
   
-  // Send data to backend at configured interval
+  // Send data to backend at configured interval (skip during warm-up)
   if (dataReceived && (millis() - lastSendTime >= SEND_INTERVAL)) {
-    if (BATCH_ID.length() > 0) {
+    if (warmingUp) {
+      Serial.println("Still warming up. Skipping backend send.");
+    } else if (BATCH_ID.length() > 0) {
       sendToBackend();
     } else {
       Serial.println("No active batch. Skipping backend send.");
@@ -253,13 +268,15 @@ void handleGetBatch() {
 void handleStatus() {
   server.sendHeader("Access-Control-Allow-Origin", "*");
   
-  StaticJsonDocument<256> response;
+  StaticJsonDocument<512> response;
   response["success"] = true;
   response["ip"] = WiFi.localIP().toString();
   response["batch_id"] = BATCH_ID;
   response["connected"] = WiFi.status() == WL_CONNECTED;
   response["data_received"] = dataReceived;
   response["uptime_ms"] = millis();
+  response["warming_up"] = warmingUp;
+  response["warmup_remaining_ms"] = warmingUp ? max(0UL, 120000 - (millis() - startupTime)) : 0;
   
   // Latest sensor values
   JsonObject sensors = response.createNestedObject("sensors");

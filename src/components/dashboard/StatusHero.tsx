@@ -1,13 +1,46 @@
 import { motion } from "framer-motion";
-import { CheckCircle2, AlertTriangle } from "lucide-react";
+import { CheckCircle2, AlertTriangle, Circle } from "lucide-react";
 
 interface StatusHeroProps {
   status: "good" | "spoiled";
   grade: string;
+  hasData?: boolean;
 }
 
-const StatusHero = ({ status, grade }: StatusHeroProps) => {
+const StatusHero = ({ status, grade, hasData = true }: StatusHeroProps) => {
   const isGood = status === "good";
+
+  if (!hasData) {
+    return (
+      <motion.div
+        layout
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="relative overflow-hidden rounded-3xl p-6 text-center border-2 border-border bg-secondary/5 transition-all duration-500"
+      >
+        <div className="relative z-10">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", delay: 0.2 }}
+            className="inline-flex items-center gap-2 mb-2"
+          >
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+              Classification
+            </span>
+          </motion.div>
+
+          <div className="flex items-center justify-center gap-3">
+            <Circle className="w-10 h-10 text-muted-foreground/40" />
+            <span className="text-4xl md:text-5xl font-extrabold tracking-tight text-muted-foreground/40">
+              --
+            </span>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
