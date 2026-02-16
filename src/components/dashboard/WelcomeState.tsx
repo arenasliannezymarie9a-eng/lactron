@@ -9,15 +9,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Batch } from "@/lib/api";
+import Esp32StatusBadge from "./Esp32StatusBadge";
 import lactronLogo from "@/assets/lactron-logo.png";
 
 interface WelcomeStateProps {
   onCreateBatch: () => void;
   onSelectBatch: (batch: Batch) => void;
   batches: Batch[];
+  esp32Status?: { isOnline: boolean };
 }
 
-const WelcomeState = ({ onCreateBatch, onSelectBatch, batches }: WelcomeStateProps) => {
+const WelcomeState = ({ onCreateBatch, onSelectBatch, batches, esp32Status }: WelcomeStateProps) => {
   const handleBatchChange = (batchId: string) => {
     const batch = batches.find((b) => b.batch_id === batchId);
     if (batch) {
@@ -77,8 +79,10 @@ const WelcomeState = ({ onCreateBatch, onSelectBatch, batches }: WelcomeStatePro
         transition={{ delay: 0.2, duration: 0.4 }}
         className="glass-card rounded-3xl p-8 w-full max-w-lg"
       >
-        <h2 className="text-lg font-semibold mb-6 text-center">Get Started</h2>
-        
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-semibold">Get Started</h2>
+          {esp32Status && <Esp32StatusBadge isOnline={esp32Status.isOnline} />}
+        </div>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Button
             onClick={onCreateBatch}

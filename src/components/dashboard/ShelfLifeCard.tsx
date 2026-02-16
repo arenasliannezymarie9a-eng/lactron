@@ -10,9 +10,10 @@ interface ShelfLifeCardProps {
   batch: Batch | null;
   onSimulate: () => void;
   isSimulating?: boolean;
+  hasData?: boolean;
 }
 
-const ShelfLifeCard = ({ hours, status, batch, onSimulate, isSimulating = false }: ShelfLifeCardProps) => {
+const ShelfLifeCard = ({ hours, status, batch, onSimulate, isSimulating = false, hasData = true }: ShelfLifeCardProps) => {
   const safeHours = typeof hours === 'number' && !isNaN(hours) ? hours : 0;
   const isGood = status === "good";
 
@@ -83,71 +84,81 @@ const ShelfLifeCard = ({ hours, status, batch, onSimulate, isSimulating = false 
         </div>
 
         <motion.div
-          key={safeHours}
+          key={hasData ? safeHours : 'placeholder'}
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: "spring", stiffness: 300, damping: 20 }}
           className={`text-6xl font-extrabold tracking-tighter ${
-            isGood ? "text-primary" : "text-status-danger"
+            !hasData ? "text-muted-foreground/40" : isGood ? "text-primary" : "text-status-danger"
           }`}
         >
-          {safeHours.toFixed(1)}
+          {hasData ? safeHours.toFixed(1) : "--"}
           <span className="text-xl text-muted-foreground font-medium ml-2">Hours</span>
         </motion.div>
       </div>
 
       {/* Tips Box */}
-      <motion.div
-        layout
-        className={`flex-1 rounded-2xl p-4 text-sm leading-relaxed ${
-          isGood
-            ? "bg-status-good/5 border border-status-good/20"
-            : "bg-status-danger/5 border border-status-danger/20"
-        }`}
-      >
-        <motion.p
-          key={tips.title}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className={`font-bold mb-2 ${isGood ? "text-status-good" : "text-status-danger"}`}
-        >
-          {tips.title}
-        </motion.p>
-        <ul className="space-y-1.5 text-muted-foreground">
-          {tips.items.map((item, i) => (
-            <motion.li
-              key={item}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.1 }}
-              className="flex items-start gap-2"
-            >
-              <span className={`mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0 ${isGood ? "bg-status-good" : "bg-status-danger"}`} />
-              {item}
-            </motion.li>
-          ))}
-        </ul>
-      </motion.div>
-
-      {/* Action Buttons */}
-      <div className="flex gap-3 mt-4 print:hidden">
-        <Button
-          variant={isSimulating ? "default" : "outline"}
-          onClick={onSimulate}
-          className={`flex-1 rounded-xl h-11 hover:scale-[1.02] transition-transform ${
-            isSimulating ? "bg-amber-500 hover:bg-amber-600 text-white" : ""
+      {hasData ? (
+        <motion.div
+          layout
+          className={`flex-1 rounded-2xl p-4 text-sm leading-relaxed ${
+            isGood
+              ? "bg-status-good/5 border border-status-good/20"
+              : "bg-status-danger/5 border border-status-danger/20"
           }`}
         >
-          <Activity className="w-4 h-4 mr-2" />
-          {isSimulating ? "Exit Simulation" : "Simulate Event"}
-        </Button>
-        <Button
-          className="flex-1 rounded-xl h-11 hover:scale-[1.02] transition-transform"
-          onClick={handlePrint}
-        >
-          PDF Report
-        </Button>
-      </div>
+          <motion.p
+            key={tips.title}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className={`font-bold mb-2 ${isGood ? "text-status-good" : "text-status-danger"}`}
+          >
+            {tips.title}
+          </motion.p>
+          <ul className="space-y-1.5 text-muted-foreground">
+            {tips.items.map((item, i) => (
+              <motion.li
+                key={item}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.1 }}
+                className="flex items-start gap-2"
+              >
+                <span className={`mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0 ${isGood ? "bg-status-good" : "bg-status-danger"}`} />
+                {item}
+              </motion.li>
+            ))}
+          </ul>
+        </motion.div>
+      ) : (
+        <div className="flex-1 rounded-2xl p-4 text-sm leading-relaxed bg-secondary/30 border border-border/50 flex items-center justify-center">
+          <p className="text-muted-foreground text-center">
+            Awaiting first sensor reading...
+          </p>
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      {hasData && (
+        <div className="flex gap-3 mt-4 print:hidden">
+          <Button
+            variant={isSimulating ? "default" : "outline"}
+            onClick={onSimulate}
+            className={`flex-1 rounded-xl h-11 hover:scale-[1.02] transition-transform ${
+              isSimulating ? "bg-amber-500 hover:bg-amber-600 text-white" : ""
+            }`}
+          >
+            <Activity className="w-4 h-4 mr-2" />
+            {isSimulating ? "Exit Simulation" : "Simulate Event"}
+          </Button>
+          <Button
+            className="flex-1 rounded-xl h-11 hover:scale-[1.02] transition-transform"
+            onClick={handlePrint}
+          >
+            PDF Report
+          </Button>
+        </div>
+      )}
     </motion.div>
   );
 };

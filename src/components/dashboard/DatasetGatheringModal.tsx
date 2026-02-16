@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { datasetAPI, sensorAPI, esp32API, DatasetSession } from "@/lib/api";
+import Esp32StatusBadge from "./Esp32StatusBadge";
+import useEsp32Status from "@/hooks/useEsp32Status";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +37,7 @@ const DatasetGatheringModal = ({ isOpen, onClose }: DatasetGatheringModalProps) 
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [latestSensor, setLatestSensor] = useState<{ ethanol: number; ammonia: number; h2s: number } | null>(null);
   const [readingCount, setReadingCount] = useState(0);
+  const esp32Status = useEsp32Status();
 
   const loadActiveSession = useCallback(async () => {
     const res = await datasetAPI.getActive();
@@ -259,14 +262,17 @@ const DatasetGatheringModal = ({ isOpen, onClose }: DatasetGatheringModalProps) 
               <div className="rounded-xl bg-secondary/50 border border-border/50 p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-mono text-muted-foreground">{activeSession.batch_id}</span>
-                  <Badge
-                    variant="outline"
-                    className={activeSession.session_state === 'active' 
-                      ? "text-[hsl(var(--status-good))] border-[hsl(var(--status-good))] text-[10px]" 
-                      : "text-[hsl(var(--status-warning))] border-[hsl(var(--status-warning))] text-[10px]"}
-                  >
-                    {activeSession.session_state === 'active' ? '● ACTIVE' : '❚❚ PAUSED'}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Esp32StatusBadge isOnline={esp32Status.isOnline} compact />
+                    <Badge
+                      variant="outline"
+                      className={activeSession.session_state === 'active' 
+                        ? "text-[hsl(var(--status-good))] border-[hsl(var(--status-good))] text-[10px]" 
+                        : "text-[hsl(var(--status-warning))] border-[hsl(var(--status-warning))] text-[10px]"}
+                    >
+                      {activeSession.session_state === 'active' ? '● ACTIVE' : '❚❚ PAUSED'}
+                    </Badge>
+                  </div>
                 </div>
                 <div className="grid grid-cols-3 gap-3 text-center">
                   <div>

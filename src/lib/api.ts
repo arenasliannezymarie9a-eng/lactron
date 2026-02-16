@@ -469,6 +469,8 @@ export const esp32API = {
     connected: boolean;
     data_received: boolean;
     uptime_ms: number;
+    warming_up: boolean;
+    warmup_remaining_ms: number;
     sensors: { ethanol: number; ammonia: number; h2s: number };
   }>> {
     try {
