@@ -7,6 +7,8 @@ interface DashboardNavProps {
   onToggleTheme: () => void;
   onViewHistory: () => void;
   onOpenDatasetGathering?: () => void;
+  warmUpEnabled?: boolean;
+  onToggleWarmUp?: () => void;
 }
 
 const DashboardNav = ({
@@ -14,6 +16,8 @@ const DashboardNav = ({
   onToggleTheme,
   onViewHistory,
   onOpenDatasetGathering,
+  warmUpEnabled,
+  onToggleWarmUp,
 }: DashboardNavProps) => {
   return (
     <motion.nav
@@ -47,6 +51,8 @@ const DashboardNav = ({
           onToggleTheme={onToggleTheme}
           onViewHistory={onViewHistory}
           onOpenDatasetGathering={onOpenDatasetGathering}
+          warmUpEnabled={warmUpEnabled}
+          onToggleWarmUp={onToggleWarmUp}
         />
       </div>
     </motion.nav>

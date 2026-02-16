@@ -7,10 +7,12 @@ import {
   History,
   Database,
   LogOut,
+  Thermometer,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { authAPI } from "@/lib/api";
+import { Switch } from "@/components/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +26,8 @@ interface ProfileDropdownProps {
   onToggleTheme: () => void;
   onViewHistory: () => void;
   onOpenDatasetGathering?: () => void;
+  warmUpEnabled?: boolean;
+  onToggleWarmUp?: () => void;
 }
 
 const ProfileDropdown = ({
@@ -31,6 +35,8 @@ const ProfileDropdown = ({
   onToggleTheme,
   onViewHistory,
   onOpenDatasetGathering,
+  warmUpEnabled = true,
+  onToggleWarmUp,
 }: ProfileDropdownProps) => {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
@@ -122,7 +128,21 @@ const ProfileDropdown = ({
                 <span className="text-sm">Dataset Gathering</span>
               </DropdownMenuItem>
 
-              <DropdownMenuSeparator className="bg-border/50" />
+              {/* Warm-Up Toggle */}
+              <DropdownMenuItem
+                onSelect={(e) => e.preventDefault()}
+                className="flex items-center justify-between gap-3 px-3 py-2.5 cursor-pointer rounded-lg hover:bg-secondary/80 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <Thermometer className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm">Sensor Warm-Up</span>
+                </div>
+                <Switch
+                  checked={warmUpEnabled}
+                  onCheckedChange={() => onToggleWarmUp?.()}
+                  className="scale-75"
+                />
+              </DropdownMenuItem>
 
               {/* Logout */}
               <DropdownMenuItem

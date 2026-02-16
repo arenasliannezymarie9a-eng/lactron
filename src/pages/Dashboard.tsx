@@ -42,9 +42,20 @@ const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [isSimulating, setIsSimulating] = useState(false);
+  const [warmUpEnabled, setWarmUpEnabled] = useState(() => {
+    return localStorage.getItem('lactron_warmup_enabled') !== 'false';
+  });
 
   const esp32Status = useEsp32Status();
   const hasData = sensorData !== null;
+
+  const toggleWarmUp = () => {
+    setWarmUpEnabled(prev => {
+      const next = !prev;
+      localStorage.setItem('lactron_warmup_enabled', String(next));
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (isDark) {
@@ -238,6 +249,8 @@ const Dashboard = () => {
             onToggleTheme={() => setIsDark(!isDark)}
             onViewHistory={() => setIsHistoryModalOpen(true)}
             onOpenDatasetGathering={() => setIsDatasetModalOpen(true)}
+            warmUpEnabled={warmUpEnabled}
+            onToggleWarmUp={toggleWarmUp}
           />
 
           <AnimatePresence mode="wait">
@@ -327,7 +340,7 @@ const Dashboard = () => {
       />
 
       <WarmUpOverlay
-        isOpen={esp32Status.isWarmingUp}
+        isOpen={warmUpEnabled && esp32Status.isWarmingUp}
         remaining={esp32Status.warmUpRemaining}
       />
     </>
