@@ -69,7 +69,7 @@ const BatchSelector = ({
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="glass-card rounded-2xl mb-5 overflow-hidden"
+        className="glass-card rounded-2xl mb-5"
       >
         {/* Row 1: Batch Identity & Actions */}
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border/30">
