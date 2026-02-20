@@ -1,27 +1,42 @@
 
+# Remove Forgot Password Feature from AuthCard
 
-# Fix Tooltip Clipping in BatchSelector
+## Overview
 
-## Problem
+Strip out all forgot password, security question, and password reset functionality from the authentication card, leaving only login and signup.
 
-The `glass-card` container on the BatchSelector has `overflow-hidden` (line 72), which clips the Radix UI Tooltip popups. The tooltips render inside this container but need to visually overflow it to be visible.
+## Changes
 
-## Solution
+### File: `src/components/auth/AuthCard.tsx`
 
-Remove `overflow-hidden` from the BatchSelector card's class list. The rounded corners on the card do not require `overflow-hidden` since the inner sections already have their own backgrounds and borders.
+**Remove imports** (line 6):
+- Remove `KeyRound`, `ArrowLeft`, `HelpCircle` from lucide-react imports (keep `Lock`, `Mail`, `User`, `Zap`, `Shield`)
+- Remove `SecurityQuestion` from the api import (line 9)
 
-## File Change
+**Simplify AuthMode type** (line 13):
+- Change from `"login" | "signup" | "forgot" | "security_question" | "reset_password"` to `"login" | "signup"`
 
-**`src/components/dashboard/BatchSelector.tsx`** (line 72)
+**Remove state variables** (lines 55-62):
+- `securityQuestions`, `securityAnswer`
+- `userSecurityQuestion`, `resetToken`, `newPassword`, `confirmNewPassword`
 
-Change:
-```
-className="glass-card rounded-2xl mb-5 overflow-hidden"
-```
-To:
-```
-className="glass-card rounded-2xl mb-5"
-```
+**Remove useEffect** (lines 65-73):
+- Delete the `loadSecurityQuestions` effect entirely
 
-This single change allows the tooltips to render above the card boundary so they become visible on hover.
+**Remove handler functions** (lines 111-164):
+- `handleForgotPassword`
+- `handleVerifySecurityAnswer`
+- `handleResetPassword`
 
+**Simplify `resetForm`** (lines 166-176):
+- Remove lines clearing `securityAnswer`, `userSecurityQuestion`, `resetToken`, `newPassword`, `confirmNewPassword`
+
+**Simplify `switchMode`** (lines 178-187):
+- Remove `"forgot"`, `"security_question"`, `"reset_password"` from `modeOrder` array
+
+**Remove UI sections**:
+- Back button for forgot password flow (lines 278-298)
+- Forgot password form `mode === "forgot"` (lines 456-504)
+- Security question form `mode === "security_question"` (lines 507-564)
+- Reset password form `mode === "reset_password"` (lines 567-639)
+- "Forgot Password?" link at the bottom (lines 642-660)
