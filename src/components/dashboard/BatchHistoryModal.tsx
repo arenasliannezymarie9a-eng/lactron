@@ -104,7 +104,7 @@ const BatchHistoryModal = ({ isOpen, onClose }: BatchHistoryModalProps) => {
         </div>
 
         {/* History List or Detail View */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden min-h-0">
           <AnimatePresence mode="wait">
             {selectedBatch ? (
               <BatchDetailView
@@ -118,7 +118,7 @@ const BatchHistoryModal = ({ isOpen, onClose }: BatchHistoryModalProps) => {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
-                className="h-full overflow-y-auto pr-2 space-y-3"
+                className="h-full overflow-y-auto pr-2 space-y-3 pb-2"
               >
                 {isLoading ? (
                   <div className="text-center py-10 text-muted-foreground">
@@ -194,7 +194,7 @@ const BatchDetailView = ({ batch, onBack, onPrint }: BatchDetailViewProps) => {
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 20 }}
-      className="h-full overflow-y-auto pr-2"
+      className="h-full overflow-y-auto pr-2 pb-2"
     >
       <Button variant="ghost" onClick={onBack} className="mb-4 -ml-2 text-sm">
         ← Back to list
