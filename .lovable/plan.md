@@ -1,26 +1,30 @@
 
 
-# Fix BatchHistoryModal Scrollability
+# Fix BatchHistoryModal Detail View Scrolling
 
 ## Problem
 
-The modal uses `flex flex-col` with `max-h-[85vh]`, but the scrollable content area lacks `min-h-0` on the flex child, which prevents `overflow-y-auto` from working in a flex container. Without this, the content overflows the modal instead of scrolling.
+The detail view (showing batch info, molecular fingerprint, grade, and shelf life) is not scrollable. The `h-full` on the `motion.div` children inside `AnimatePresence` doesn't properly inherit the constrained height from the `flex-1` parent, so the content overflows without enabling scroll.
 
 ## Solution
 
-**File: `src/components/dashboard/BatchHistoryModal.tsx`**
+Move the scroll behavior to the outer flex-1 container itself instead of relying on nested `h-full overflow-y-auto` children. This is more robust because it removes the dependency on `h-full` resolving correctly through AnimatePresence.
 
-1. **Line 83** -- Add `min-h-0` to the flex-1 overflow container:
-   - Change: `className="flex-1 overflow-hidden"`
-   - To: `className="flex-1 overflow-hidden min-h-0"`
+## File Change
 
-2. **Line 99** (list view div) -- Ensure scroll container fills available space:
-   - Change: `className="h-full overflow-y-auto pr-2 space-y-3"`
-   - To: `className="h-full overflow-y-auto pr-2 space-y-3 pb-2"`
+**`src/components/dashboard/BatchHistoryModal.tsx`**
 
-3. **Line 155** (detail view div) -- Same fix for the detail scroll container:
-   - Change: `className="h-full overflow-y-auto pr-2"`
-   - To: `className="h-full overflow-y-auto pr-2 pb-2"`
+1. **Line 107** - Change the content wrapper from `overflow-hidden` to `overflow-y-auto`:
+   - From: `className="flex-1 overflow-hidden min-h-0"`
+   - To: `className="flex-1 overflow-y-auto min-h-0"`
 
-The key fix is `min-h-0` on the flex child -- by default, flex children have `min-height: auto` which prevents them from shrinking below their content size, breaking overflow scrolling.
+2. **Line 121** - Remove redundant scroll classes from the list view:
+   - From: `className="h-full overflow-y-auto pr-2 space-y-3 pb-2"`
+   - To: `className="space-y-3 pb-2"`
+
+3. **Line 197** - Remove redundant scroll classes from the detail view:
+   - From: `className="h-full overflow-y-auto pr-2 pb-2"`
+   - To: `className="pb-4"`
+
+This moves scrolling to a single parent container that has a guaranteed constrained height via `flex-1 min-h-0`, making both the list view and detail view scrollable without relying on nested height inheritance.
 
