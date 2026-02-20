@@ -43,7 +43,7 @@ const Dashboard = () => {
   const [isDatasetModalOpen, setIsDatasetModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
-  const [isSimulating, setIsSimulating] = useState(false);
+  
   const [warmUpEnabled, setWarmUpEnabled] = useState(() => {
     return localStorage.getItem('lactron_warmup_enabled') !== 'false';
   });
@@ -121,12 +121,12 @@ const Dashboard = () => {
 
   // Polling - stops when 30 readings reached
   useEffect(() => {
-    if (currentBatch && !isSimulating && !isComplete) {
+    if (currentBatch && !isComplete) {
       loadSensorHistory();
       const interval = setInterval(loadSensorHistory, 5000);
       return () => clearInterval(interval);
     }
-  }, [currentBatch, loadSensorHistory, isSimulating, isComplete]);
+  }, [currentBatch, loadSensorHistory, isComplete]);
 
   // Reset auto-save flag when batch changes
   useEffect(() => {
@@ -135,7 +135,7 @@ const Dashboard = () => {
 
   // Auto-save when 30 readings complete
   useEffect(() => {
-    if (isComplete && currentBatch && sensorData && !autoSavedRef.current && !isSimulating) {
+    if (isComplete && currentBatch && sensorData && !autoSavedRef.current) {
       autoSavedRef.current = true;
       const grade = status === "good" ? "GOOD" : "SPOILED";
       historyAPI.save(
@@ -153,7 +153,7 @@ const Dashboard = () => {
         }
       });
     }
-  }, [isComplete, currentBatch, sensorData, status, shelfLife, isSimulating]);
+  }, [isComplete, currentBatch, sensorData, status, shelfLife]);
 
   const handleGenerateReport = () => {
     if (!currentBatch) return;
@@ -182,23 +182,6 @@ const Dashboard = () => {
     await esp32API.clearBatch();
   };
 
-  const simulateEvent = () => {
-    if (isSimulating) {
-      setIsSimulating(false);
-      loadSensorHistory();
-    } else {
-      setIsSimulating(true);
-      if (status === "good") {
-        setStatus("spoiled");
-        setSensorData({ ethanol: 95, ammonia: 52, h2s: 22 });
-        setShelfLife(0);
-      } else {
-        setStatus("good");
-        setSensorData({ ethanol: 12, ammonia: 5, h2s: 0.8 });
-        setShelfLife(45.5);
-      }
-    }
-  };
 
   if (isAuthChecking) {
     return (
@@ -298,9 +281,7 @@ const Dashboard = () => {
                       hours={shelfLife}
                       status={status}
                       batch={currentBatch}
-                      onSimulate={simulateEvent}
                       onGenerateReport={handleGenerateReport}
-                      isSimulating={isSimulating}
                       isComplete={isComplete}
                       hasData={hasData}
                     />

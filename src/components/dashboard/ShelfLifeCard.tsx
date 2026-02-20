@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Clock, Activity, FileText, CheckCircle2 } from "lucide-react";
+import { Clock, FileText, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Batch } from "@/lib/api";
 
@@ -7,14 +7,12 @@ interface ShelfLifeCardProps {
   hours: number;
   status: "good" | "spoiled";
   batch: Batch | null;
-  onSimulate: () => void;
   onGenerateReport: () => void;
-  isSimulating?: boolean;
   isComplete?: boolean;
   hasData?: boolean;
 }
 
-const ShelfLifeCard = ({ hours, status, batch, onSimulate, onGenerateReport, isSimulating = false, isComplete = false, hasData = true }: ShelfLifeCardProps) => {
+const ShelfLifeCard = ({ hours, status, batch, onGenerateReport, isComplete = false, hasData = true }: ShelfLifeCardProps) => {
   const safeHours = typeof hours === 'number' && !isNaN(hours) ? hours : 0;
   const isGood = status === "good";
 
@@ -58,25 +56,8 @@ const ShelfLifeCard = ({ hours, status, batch, onSimulate, onGenerateReport, isS
       transition={{ duration: 0.5, delay: 0.2 }}
       className="glass-card rounded-3xl p-6 flex flex-col h-full"
     >
-      {/* Simulation Mode Banner */}
-      {isSimulating && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-center"
-        >
-          <p className="text-amber-500 font-semibold text-sm flex items-center justify-center gap-2">
-            <Activity className="w-4 h-4 animate-pulse" />
-            SIMULATION MODE
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Click below to resume real-time data.
-          </p>
-        </motion.div>
-      )}
-
       {/* Complete Banner */}
-      {isComplete && !isSimulating && hasData && (
+      {isComplete && hasData && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -158,31 +139,16 @@ const ShelfLifeCard = ({ hours, status, batch, onSimulate, onGenerateReport, isS
         </div>
       )}
 
-      {/* Action Buttons */}
-      {hasData && (
+      {/* Action Button */}
+      {hasData && isComplete && (
         <div className="flex gap-3 mt-4 print:hidden">
-          {isComplete ? (
-            <Button
-              onClick={onGenerateReport}
-              className="flex-1 rounded-xl h-11 hover:scale-[1.02] transition-transform"
-            >
-              <FileText className="w-4 h-4 mr-2" />
-              Generate Report
-            </Button>
-          ) : (
-            <>
-              <Button
-                variant={isSimulating ? "default" : "outline"}
-                onClick={onSimulate}
-                className={`flex-1 rounded-xl h-11 hover:scale-[1.02] transition-transform ${
-                  isSimulating ? "bg-amber-500 hover:bg-amber-600 text-white" : ""
-                }`}
-              >
-                <Activity className="w-4 h-4 mr-2" />
-                {isSimulating ? "Exit Simulation" : "Simulate Event"}
-              </Button>
-            </>
-          )}
+          <Button
+            onClick={onGenerateReport}
+            className="flex-1 rounded-xl h-11 hover:scale-[1.02] transition-transform"
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            Generate Report
+          </Button>
         </div>
       )}
     </motion.div>
