@@ -30,10 +30,10 @@ const MolecularFingerprint = ({ data, history, readingCount = 0, maxReadings = 3
           <Beaker className="w-5 h-5 text-primary" />
         </div>
         <div className="flex-1">
-          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+          <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest">
             Molecular Fingerprint
           </h3>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Real-time gas sensor readings
           </p>
         </div>
