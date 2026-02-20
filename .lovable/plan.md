@@ -1,42 +1,26 @@
 
-# Remove Forgot Password Feature from AuthCard
 
-## Overview
+# Fix BatchHistoryModal Scrollability
 
-Strip out all forgot password, security question, and password reset functionality from the authentication card, leaving only login and signup.
+## Problem
 
-## Changes
+The modal uses `flex flex-col` with `max-h-[85vh]`, but the scrollable content area lacks `min-h-0` on the flex child, which prevents `overflow-y-auto` from working in a flex container. Without this, the content overflows the modal instead of scrolling.
 
-### File: `src/components/auth/AuthCard.tsx`
+## Solution
 
-**Remove imports** (line 6):
-- Remove `KeyRound`, `ArrowLeft`, `HelpCircle` from lucide-react imports (keep `Lock`, `Mail`, `User`, `Zap`, `Shield`)
-- Remove `SecurityQuestion` from the api import (line 9)
+**File: `src/components/dashboard/BatchHistoryModal.tsx`**
 
-**Simplify AuthMode type** (line 13):
-- Change from `"login" | "signup" | "forgot" | "security_question" | "reset_password"` to `"login" | "signup"`
+1. **Line 83** -- Add `min-h-0` to the flex-1 overflow container:
+   - Change: `className="flex-1 overflow-hidden"`
+   - To: `className="flex-1 overflow-hidden min-h-0"`
 
-**Remove state variables** (lines 55-62):
-- `securityQuestions`, `securityAnswer`
-- `userSecurityQuestion`, `resetToken`, `newPassword`, `confirmNewPassword`
+2. **Line 99** (list view div) -- Ensure scroll container fills available space:
+   - Change: `className="h-full overflow-y-auto pr-2 space-y-3"`
+   - To: `className="h-full overflow-y-auto pr-2 space-y-3 pb-2"`
 
-**Remove useEffect** (lines 65-73):
-- Delete the `loadSecurityQuestions` effect entirely
+3. **Line 155** (detail view div) -- Same fix for the detail scroll container:
+   - Change: `className="h-full overflow-y-auto pr-2"`
+   - To: `className="h-full overflow-y-auto pr-2 pb-2"`
 
-**Remove handler functions** (lines 111-164):
-- `handleForgotPassword`
-- `handleVerifySecurityAnswer`
-- `handleResetPassword`
+The key fix is `min-h-0` on the flex child -- by default, flex children have `min-height: auto` which prevents them from shrinking below their content size, breaking overflow scrolling.
 
-**Simplify `resetForm`** (lines 166-176):
-- Remove lines clearing `securityAnswer`, `userSecurityQuestion`, `resetToken`, `newPassword`, `confirmNewPassword`
-
-**Simplify `switchMode`** (lines 178-187):
-- Remove `"forgot"`, `"security_question"`, `"reset_password"` from `modeOrder` array
-
-**Remove UI sections**:
-- Back button for forgot password flow (lines 278-298)
-- Forgot password form `mode === "forgot"` (lines 456-504)
-- Security question form `mode === "security_question"` (lines 507-564)
-- Reset password form `mode === "reset_password"` (lines 567-639)
-- "Forgot Password?" link at the bottom (lines 642-660)
